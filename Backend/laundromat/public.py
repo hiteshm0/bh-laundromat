@@ -8,7 +8,7 @@ import typer
 
 from . import gate, history, proposal, sandbox, scenarios, service
 from .snapshot import LIMIT, TOKEN, snapshot
-from .commands import errors, output
+from .commands import errors, output, review_spinner
 
 
 def _banner() -> str:
@@ -194,6 +194,7 @@ def register(app):
                 category=category,
                 full_context=target.is_dir(),
             )
+            compact = False
             if diff:
                 if diff == "-":
                     raw = sys.stdin.buffer.read(LIMIT + 1)
@@ -207,16 +208,22 @@ def register(app):
                 files = {n: new[n] for n in paths if n in new}
                 req["scope"] = paths
             elif baseline == "template":
-                sid = service.enqueue(
-                    folder,
-                    None if target.is_dir() else [target.name],
-                    # A new CLI review observes the current registry and tool availability.
-                    key=uuid.uuid4().hex,
-                    trigger="read-only snapshot",
-                    category=category,
-                )
-                service.work(sid, progress_callback=progress)
-                result = history.detail(sid)
+                with review_spinner(machine) as status:
+                    sid = service.enqueue(
+                        folder,
+                        None if target.is_dir() else [target.name],
+                        # A new CLI review observes the current registry and tool availability.
+                        key=uuid.uuid4().hex,
+                        trigger="read-only snapshot",
+                        category=category,
+                    )
+                    service.work(
+                        sid,
+                        progress_callback=None if status else progress,
+                        phase_callback=status.update if status else None,
+                    )
+                    result = history.detail(sid)
+                compact = status is not None
             if baseline != "template":
                 from .experiment import arm
 
@@ -233,6 +240,6 @@ def register(app):
                 allowed = {"command", "prompt", "query"} if category == "injection" else {category}
                 result["findings"] = [f for f in result["findings"] if f["category"] in allowed]
                 result["display_class"] = category
-            output(result, machine)
+            output(result, machine, compact=compact)
             if result.get("status") == "incomplete":
                 raise typer.Exit(2)

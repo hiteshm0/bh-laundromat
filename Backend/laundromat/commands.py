@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import typer
+from rich.console import Console
 
 from . import capture as tasks
 from . import gate as push
@@ -22,7 +23,17 @@ def errors(machine=True):
         raise typer.Exit(2) from exc
 
 
-def output(value, machine):
+@contextmanager
+def review_spinner(machine, message="Preparing review…"):
+    console = Console(stderr=True)
+    if machine or not sys.stdout.isatty() or not console.is_terminal or console.is_dumb_terminal:
+        yield None
+        return
+    with console.status(message) as status:
+        yield status
+
+
+def output(value, machine, *, compact=False):
     if machine:
         typer.echo(history.encoded(value))
     elif "cases" in value or "scenarios" in value:
@@ -47,8 +58,9 @@ def output(value, machine):
         if checks:
             typer.echo("Coverage · " + ", ".join(checks))
         typer.echo(f"{value['trigger']} · {value['status']} · {value.get('id', '')}")
-        for limit in value.get("scope_limits", []):
-            typer.echo(limit)
+        if not compact:
+            for limit in value.get("scope_limits", []):
+                typer.echo(limit)
         for item in value.get("changes", []):
             typer.echo(f"{item['change']} {item['path']}\n{item['diff']}")
         for h in value["findings"]:
@@ -56,9 +68,12 @@ def output(value, machine):
                 f"{'Critical' if h.get('severity') == 'P1' else h.get('severity', 'Candidate')}  {h.get('path') or 'selected input'}:{h.get('line') or '—'}  {h.get('category')}  {h.get('explanation') or h.get('rationale', 'Pattern match')}"
             )
         if r := value.get("repair"):
-            typer.echo(
-                f"{r['property']} · {r['verdict']} · {r['origin']} · {r['state']}\n{r['diff']}"
-            )
+            if compact:
+                typer.echo(f"Repair suggestion · {r['property']} · {r['verdict']}")
+            else:
+                typer.echo(
+                    f"{r['property']} · {r['verdict']} · {r['origin']} · {r['state']}\n{r['diff']}"
+                )
             if r.get("after") and "binding" in r["after"]:
                 typer.echo(
                     f"Parameter binding  {r['before']['binding']['status']} → {r['after']['binding']['status']}"
@@ -85,12 +100,14 @@ def output(value, machine):
                 typer.echo("Approve and stage with " + command)
         if "staged" in states:
             typer.echo("Review git diff --cached, commit the staged repair, then push again.")
-        if d := value.get("push_decision"):
+        if (d := value.get("push_decision")) and (not compact or d["action"] != "not evaluated"):
             typer.echo(f"{d['action']} · {d['reason']}")
             for fid in d.get("pending", []):
                 typer.echo(f"laundromat acknowledge {value['id']} {fid}")
         for reason in value.get("issues", []):
             typer.echo(reason)
+        if compact and value.get("id"):
+            typer.echo(f"Full receipt · laundromat show {value['id']}")
     else:
         typer.echo(TOKEN.sub("[redacted]", json.dumps(value, indent=2)))
 
@@ -135,16 +152,17 @@ def register_commands(app):
     ):
         """Scan local files synchronously and record the exact snapshot."""
         with errors(json_mode):
-            sid = service.enqueue(
-                repo,
-                scope or None,
-                key,
-                "prepared snapshot" if prepared else "local snapshot",
-                model,
-            )
-            service.work(sid)
-            result = history.detail(sid)
-            output(result, json_mode)
+            with review_spinner(json_mode) as status:
+                sid = service.enqueue(
+                    repo,
+                    scope or None,
+                    key,
+                    "prepared snapshot" if prepared else "local snapshot",
+                    model,
+                )
+                service.work(sid, phase_callback=status.update if status else None)
+                result = history.detail(sid)
+            output(result, json_mode, compact=status is not None)
             if result["status"] in ("incomplete", "interrupted"):
                 raise typer.Exit(2)
 
@@ -220,15 +238,20 @@ def register_commands(app):
         remote: str = "",
         json_mode: bool = typer.Option(False, "--json"),
     ):
-        def progress(stage):
-            typer.echo(push.PROGRESS_PREFIX + stage, err=True)
-
         with errors(json_mode):
-            show_progress = not json_mode and os.getenv("LAUNDROMAT_PUSH_PROGRESS") == "1"
-            result = push.decide(
-                repo, remote, sys.stdin.read(), progress=progress if show_progress else None
-            )
-            output(result, json_mode)
+            stream_progress = not json_mode and os.getenv("LAUNDROMAT_PUSH_PROGRESS") == "1"
+            with review_spinner(json_mode or stream_progress, "Preparing push review…") as status:
+                def progress(stage):
+                    if status:
+                        label = push.PROGRESS_LABELS.get(stage, "Reviewing the push")
+                        status.update(label + "…")
+                    else:
+                        typer.echo(push.PROGRESS_PREFIX + stage, err=True)
+
+                result = push.decide(
+                    repo, remote, sys.stdin.read(), progress=progress if status or stream_progress else None
+                )
+            output(result, json_mode, compact=status is not None)
             if result["push_decision"]["action"] != "allow":
                 raise typer.Exit(1)
 

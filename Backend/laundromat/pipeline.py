@@ -223,10 +223,13 @@ def inspect(
     context_files=None,
     verify=True,
     progress_callback=None,
+    phase_callback=None,
 ):
     result = scan_rules(request, files, before_files=before_files, context_files=context_files)
     hits, coverage, issues = result["findings"], result["coverage"], result["issues"]
     selected = request.get("category")
+    if hits and phase_callback:
+        phase_callback("Reviewing findings…")
     for hit in hits:
         if progress_callback:
             severity = "Critical" if hit["severity"] == "P1" else hit["severity"]
@@ -265,6 +268,8 @@ def inspect(
                 elif observation["status"] == "incomplete":
                     issues.append(observation["reason"])
         if hit["category"] == "secret" and "candidate_observations" not in hit:
+            if phase_callback:
+                phase_callback("Preparing a repair suggestion…")
             candidate = repair.propose_secret_repair(files[hit["path"]], hit)
             if candidate:
                 result.setdefault("repairs", []).append(candidate)

@@ -14,6 +14,14 @@ from .workspace import digest, json_bytes
 
 OID = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})")
 PROGRESS_PREFIX = "laundromat-progress "
+PROGRESS_LABELS = {
+    "scan": "Scanning outgoing commits",
+    "review": "Reviewing a finding",
+    "original": "Testing the original query",
+    "draft": "Drafting a fix",
+    "verify": "Verifying the suggested fix",
+    "stage": "Staging the verified fix",
+}
 
 
 def install(repo):

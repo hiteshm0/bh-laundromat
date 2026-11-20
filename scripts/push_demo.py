@@ -20,6 +20,7 @@ from threading import Thread
 
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
+from laundromat.gate import PROGRESS_LABELS
 
 EXAMPLE = Path(__file__).resolve().parents[1] / "examples/warehouse"
 SOURCE = "inventory/stock.cjs"
@@ -30,12 +31,7 @@ ORIGINAL = (
 PHASES = {
     "prepare": "Preparing the demo repository",
     "baseline": "Pushing the clean starting commit",
-    "scan": "Scanning the outgoing commit",
-    "review": "Checking the flagged query",
-    "original": "Testing the original query",
-    "draft": "Drafting a fix",
-    "verify": "Verifying the suggested fix",
-    "stage": "Staging the verified fix",
+    **PROGRESS_LABELS,
 }
 
 

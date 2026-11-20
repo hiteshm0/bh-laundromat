@@ -92,7 +92,7 @@ def retry(sid):
         history.event(db, sid, "retried")
 
 
-def work(sid=None, progress_callback=None):
+def work(sid=None, progress_callback=None, *, phase_callback=None):
     from .pipeline import inspect
 
     history.home().mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -120,6 +120,8 @@ def work(sid=None, progress_callback=None):
                 progress_callback(msg)
 
         try:
+            if phase_callback:
+                phase_callback("Scanning files…")
             current, files = snapshot(
                 req["snapshot"]["repository"], list(req["snapshot"]["files"]), allow_absent=True
             )
@@ -148,9 +150,12 @@ def work(sid=None, progress_callback=None):
                     before_files=base,
                     context_files=files,
                     progress_callback=_capture,
+                    phase_callback=phase_callback,
                 )
             else:
-                result = inspect(req, selected, progress_callback=_capture)
+                result = inspect(
+                    req, selected, progress_callback=_capture, phase_callback=phase_callback
+                )
         except Exception as exc:
             result = dict(
                 status="incomplete",
@@ -162,5 +167,7 @@ def work(sid=None, progress_callback=None):
         if "task_finished" in req:
             result["task_to_verdict_ms"] = round((time.time() - req["task_finished"]) * 1000)
         result["cli_log"] = format_cli_summary(result, logs)
+        if phase_callback:
+            phase_callback("Saving review…")
         history.finish(sid, result)
         return sid
