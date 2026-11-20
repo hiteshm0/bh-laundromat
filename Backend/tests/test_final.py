@@ -86,7 +86,7 @@ class LocalReview(unittest.TestCase):
     def test_worker_crash_retry_and_snapshot_drift(self):
         sid = service.enqueue(self.repo, ["search.js"])
         # Terminate the worker process after it has committed its running state.
-        code = "import os,sys; from laundromat import pipeline,service; pipeline.inspect=lambda *a:os._exit(52); service.work(sys.argv[1])"
+        code = "import os,sys; from laundromat import pipeline,service; pipeline.inspect=lambda *a,**kw:os._exit(52); service.work(sys.argv[1])"
         self.assertEqual(subprocess.run([sys.executable, "-c", code, sid]).returncode, 52)
         service.work()
         self.assertEqual(history.detail(sid)["status"], "interrupted")

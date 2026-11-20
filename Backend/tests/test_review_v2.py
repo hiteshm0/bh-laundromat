@@ -5,9 +5,12 @@ import shutil
 import subprocess
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+from urllib.error import HTTPError, URLError
+from typer.testing import CliRunner
 
-from laundromat import capture, detect, gate, history, proposal, repair, scenarios, service
+from laundromat import capture, detect, gate, history, manifests, pipeline, proposal, repair, scenarios, service
+from laundromat.cli import app
 from laundromat.snapshot import snapshot
 from laundromat.workspace import FIXTURE, digest
 
@@ -24,6 +27,101 @@ class ProposalReview(unittest.TestCase):
         )
         env.start()
         self.addCleanup(env.stop)
+
+    def test_secret_candidate_cli_and_undo_preserve_other_credentials(self):
+        token = "ghp_" + "A" * 36
+        other = "sk-proj-" + "B" * 40
+        original = f"export const key = '{token}';\r\nexport const other = '{other}';".encode()
+        path = self.repo / "settings.js"
+        path.write_bytes(original)
+        path.chmod(0o640)
+        def cli(*args):
+            return json.loads(subprocess.check_output(["laundromat", *args]))
+
+        report = cli("review", path, "--class", "secret", "--format", "json")
+        self.assertEqual(len(report["repairs"]), 2)
+        self.assertNotIn(token, json.dumps(report))
+        self.assertNotIn(other, json.dumps(report))
+        sid, fid = report["id"], report["findings"][0]["id"]
+        receipt = next(r for r in report["repairs"] if r["finding_id"] == fid)
+        self.assertEqual(receipt["verdict"], "candidate")
+        self.assertIn("process.env.GITHUB_TOKEN", receipt["diff"])
+        self.assertEqual(receipt["patch_sha256"], digest(receipt["diff"].encode()))
+        with self.assertRaisesRegex(ValueError, "apply-candidate"):
+            repair.change(sid, False, fid)
+        path.write_bytes(original + b" ")
+        with self.assertRaisesRegex(ValueError, "Stale"):
+            repair.apply_candidate_repair(sid, fid)
+        path.write_bytes(original)
+        applied = cli("apply-candidate", sid, fid, "--json")
+        self.assertEqual(Path(applied["backup"]).read_bytes(), original)
+        self.assertEqual(Path(applied["backup"]).stat().st_mode & 0o777, 0o600)
+        self.assertEqual(path.read_bytes(), original.replace(f"'{token}'".encode(), b"process.env.GITHUB_TOKEN"))
+        self.assertEqual(path.stat().st_mode & 0o777, 0o640)
+        self.assertEqual(history.detail(sid)["repair"]["state"], "applied")
+        self.assertEqual(cli("undo", sid, "--finding", fid, "--json")["state"], "restored")
+        self.assertEqual(path.read_bytes(), original)
+
+    def test_two_secret_literals_on_one_line(self):
+        tokens = ["ghp_" + char * 36 for char in "AB"]
+        source = ("// config\nconst a = 'ghp_SHORTshort', b = '%s', c = '%s';" % tuple(tokens)).encode()
+        hits = detect.secrets(source, "config.js")
+        self.assertEqual(len({h["id"] for h in hits}), 2)
+        for hit, token in zip(hits, tokens, strict=True):
+            expected = source.replace(("'" + token + "'").encode(), b"process.env.GITHUB_TOKEN")
+            self.assertEqual(repair.secret_candidate(source, hit), expected)
+
+    def test_python_secret_import_and_line_selection(self):
+        token = b"LMTEST_" + b"Q" * 24
+        data = b'"""config"""\r\nfrom __future__ import annotations\r\nkey = "' + token + b'"'
+        finding = dict(path="settings.py", rule="laundromat-synthetic-credential", line=3, id="sample")
+        r = repair.propose_secret_repair(data, finding)
+        self.assertEqual(r["candidate"], '"""config"""\r\nfrom __future__ import annotations\r\n'
+                                         'import os\r\nkey = os.environ["API_SECRET"]')
+        for invalid in (0, 99, None):
+            self.assertIsNone(repair.propose_secret_repair(data, dict(finding, line=invalid)))
+        for example in (b'# key = "' + token + b'"', b'key = "prefix ' + token + b'"'):
+            self.assertIsNone(repair.propose_secret_repair(example, dict(finding, line=1)))
+
+    def test_registry_status_encoding_outage_and_bypass(self):
+        success = MagicMock()
+        success.__enter__.return_value.status = 200
+        missing = HTTPError("https://registry.npmjs.org/absent", 404, "missing", {}, None)
+        unavailable = HTTPError("https://registry.npmjs.org/busy", 503, "busy", {}, None)
+        with patch.object(manifests, "urlopen", side_effect=[success, missing, unavailable, URLError("DNS")]) as head:
+            result = manifests.check_registry_existence(["@types/react", "absent", "busy", "offline", "file:./dep"])
+        self.assertEqual(result, {"@types/react": True, "absent": False, "busy": None, "offline": None})
+        self.assertEqual(head.call_args_list[0].args[0].full_url, "https://registry.npmjs.org/%40types%2Freact")
+        for call in head.call_args_list:
+            self.assertEqual((call.args[0].method, call.kwargs["timeout"]), ("HEAD", 4))
+        files = {"package.json": b'{"dependencies":{"absent":"1.0.0","local":"file:./local"}}'}
+        req = dict(snapshot={"issues": []}, category="slopsquatting", baseline_known=True)
+        with patch.object(manifests, "urlopen", side_effect=URLError("DNS")) as head:
+            self.assertFalse(pipeline.scan_rules(req, files)["findings"])
+            head.assert_called_once()
+            head.reset_mock()
+            pipeline.scan_rules(dict(req, skip_registry_check=True), files)
+            head.assert_not_called()
+
+    def test_serve_demo_ledger_without_reseeding(self):
+        runner = CliRunner()
+        self.assertEqual(runner.invoke(app, ["serve", "--demo-history"]).exit_code, 2)
+        with patch.object(shutil, "which", return_value=None):
+            result = runner.invoke(app, ["seed-demo-history", "--json"])
+            self.assertEqual(result.exit_code, 2)
+            self.assertIn("gitleaks, semgrep, docker", json.loads(result.stdout)["reason"])
+        real_ledger = history.home()
+        demo = history.demo_home()
+        with patch.object(scenarios, "measure", return_value={"status": "clean", "findings": []}):
+            history.seed_demo_history()
+        served = []
+        with patch("uvicorn.run", side_effect=lambda *a, **kw: served.append(history.home())), patch.object(history, "seed_demo_history") as seed:
+            for args in (["serve", "--demo-history"], ["--demo-history", "serve"], ["demo-serve"]):
+                result = runner.invoke(app, args)
+                self.assertEqual(result.exit_code, 0, result.output)
+                self.assertEqual(history.home(), real_ledger)
+            seed.assert_not_called()
+        self.assertEqual(served, [demo] * 3)
 
     def test_rejected_repaired_and_stale_proposal(self):
         target = self.repo / "search.js"
@@ -73,7 +171,7 @@ class ProposalReview(unittest.TestCase):
 
         original = checks.behavior
 
-        def mismatch(source, cases, runtime=None):
+        def mismatch(source, cases, runtime=None, progress_callback=None):
             return original(
                 source, [dict(c, ids=[999]) if c["term"] == "amber" else c for c in cases], runtime
             )
@@ -204,4 +302,7 @@ class ProposalReview(unittest.TestCase):
             m.reset_mock()
             self.assertEqual(a, history.seed_demo_history())
             m.assert_not_called()
+            self.assertEqual(a, history.seed_demo_history(reseed=True))
+            self.assertGreater(m.call_count, 20)
+            self.assertEqual(len(a["injection_scan_ids"]), len(list(scenarios.examples("injection"))))
         self.assertEqual(len(history.listing()), 1)

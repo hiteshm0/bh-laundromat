@@ -5,7 +5,7 @@ import time
 from importlib.metadata import version
 from pathlib import Path
 
-from . import detect, repair, owned, sandbox, history
+from . import detect, repair, owned, sandbox, history, manifests
 from .snapshot import ORIGINAL_HASH, HEADER, TOKEN
 from .workspace import digest
 
@@ -106,12 +106,16 @@ def scan_rules(request, files, *, before_files=None, context_files=None):
 
             def manifest():
                 before = (before_files or {}).get(name)
-                if before is None and not request.get("baseline_known"):
-                    if detect.manifest_additions(b"{}", data):
-                        raise ValueError(f"{name}: previous declarations unknown")
-                    return
                 previous = before or b"{}"
                 additions = detect.manifest_additions(previous, data)
+                if selected in (None, "slopsquatting") and not request.get("skip_registry_check"):
+                    hits.extend(manifests.hallucinated_packages(name, additions))
+                if before is None and not request.get("baseline_known"):
+                    # Existence can be checked for a standalone manifest. Claims
+                    # about newly added dependencies still require a baseline.
+                    if additions and selected != "slopsquatting":
+                        raise ValueError(f"{name}: previous declarations unknown")
+                    return
                 if selected in (None, "slopsquatting"):
                     hits.extend(detect.similar_names(name, additions))
                 if selected == "slopsquatting":
@@ -218,11 +222,16 @@ def inspect(
     before_files=None,
     context_files=None,
     verify=True,
+    progress_callback=None,
 ):
     result = scan_rules(request, files, before_files=before_files, context_files=context_files)
     hits, coverage, issues = result["findings"], result["coverage"], result["issues"]
     selected = request.get("category")
     for hit in hits:
+        if progress_callback:
+            severity = "Critical" if hit["severity"] == "P1" else hit["severity"]
+            progress_callback(TOKEN.sub("[redacted]", f"[detect] {severity}  {hit['category']}  "
+                                        f"{hit['path']}:{hit['line'] or '—'}  {hit['explanation'][:80]}"))
         hit["state"] = "candidate"
         if request.get("progress_id"):
             history.progress(request["progress_id"], hit)
@@ -235,15 +244,18 @@ def inspect(
                 and hit["category"] == item["category"]
                 and files[path] == sandbox.owned_bytes(test, "before")
             ):
-                observation = owned.observe(test, files[path])
+                observation = owned.observe(test, files[path], progress_callback)
+                if progress_callback:
+                    progress_callback(f"[sandbox] BEFORE {test}: {observation['status'].upper()}")
                 hit["original_observations"] = observation
                 if observation["status"] == "fail":
                     candidate = owned.audit(
-                        test, files[path], sandbox.owned_bytes(test, "after"), observation
+                        test, files[path], sandbox.owned_bytes(test, "after"), observation, progress_callback
                     )
                     candidate["finding_id"] = hit["id"]
                     result.setdefault("repairs", []).append(candidate)
-                    result.setdefault("repair", candidate)
+                    if result.get("repair", {}).get("verdict", "candidate") == "candidate":
+                        result["repair"] = candidate
                     hit["candidate_observations"] = candidate["after"]
                     hit["repair_status"] = candidate["verdict"] + " " + item["property"]
                     if candidate["verdict"] == "verified":
@@ -252,6 +264,14 @@ def inspect(
                         issues.append(candidate["reason"])
                 elif observation["status"] == "incomplete":
                     issues.append(observation["reason"])
+        if hit["category"] == "secret" and "candidate_observations" not in hit:
+            candidate = repair.propose_secret_repair(files[hit["path"]], hit)
+            if candidate:
+                result.setdefault("repairs", []).append(candidate)
+                result.setdefault("repair", candidate)
+                hit["repair_status"] = "candidate env-var substitution"
+                if request.get("progress_id"):
+                    history.progress(request["progress_id"], hit)
         if hit["category"] != "query":
             continue
         hit["repair_status"] = "unsupported query style or path"
@@ -263,6 +283,7 @@ def inspect(
                     request.get("model", False),
                     fallback=not model_only,
                     model_context=model_context,
+                    progress_callback=progress_callback,
                 )
                 if candidate:
                     result["repair"] = candidate

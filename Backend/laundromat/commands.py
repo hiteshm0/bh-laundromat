@@ -7,7 +7,7 @@ import typer
 
 from . import capture as tasks
 from . import gate as push
-from . import history, legacy, service
+from . import history, legacy, repair, service
 from .snapshot import TOKEN
 
 
@@ -94,7 +94,25 @@ def output(value, machine):
         typer.echo(TOKEN.sub("[redacted]", json.dumps(value, indent=2)))
 
 
+def serve_dashboard(port, demo_root=None):
+    import uvicorn
+
+    # The server, its async tasks and to_thread workers inherit this context.
+    token = history.LEDGER.set(demo_root or history.home())
+    try:
+        uvicorn.run("laundromat.api:app", host="127.0.0.1", port=port,
+                    log_level="warning", access_log=False)
+    finally:
+        history.LEDGER.reset(token)
+
+
 def register_commands(app):
+    @app.command("apply-candidate")
+    def apply_candidate(scan_id: str, finding_id: str, json_mode: bool = typer.Option(False, "--json")):
+        """Apply a candidate repair after manually reviewing its diff."""
+        with errors(json_mode):
+            output(repair.apply_candidate_repair(scan_id, finding_id), json_mode)
+
     @app.command()
     def register(repo: Path, json_mode: bool = typer.Option(False, "--json")):
         """Allow the local API to scan this repository."""
@@ -214,7 +232,40 @@ def register_commands(app):
             output(push.acknowledge(scan_id, finding_id), json_mode)
 
     @app.command()
-    def serve(port: int = typer.Option(8731, min=1, max=65535)):
-        import uvicorn
+    def serve(
+        port: int = typer.Option(8731, min=1, max=65535),
+        demo_history: bool = typer.Option(
+            False, "--demo-history", help="Serve the pre-seeded demo replay ledger."
+        ),
+    ):
+        """Start the local review API and dashboard."""
+        with errors(False):
+            root = history.demo_home() if demo_history else history.LEDGER.get()
+            if root:
+                if not (root / "history.sqlite").is_file():
+                    typer.echo("Demo ledger not found. Run: laundromat seed-demo-history", err=True)
+                    raise typer.Exit(2)
+                typer.echo(f"Serving demo ledger from {root}")
+            serve_dashboard(port, root)
 
-        uvicorn.run("laundromat.api:app", host="127.0.0.1", port=port, log_level="info", access_log=False)
+    @app.command("demo-serve")
+    def demo_serve(
+        port: int = typer.Option(8731, min=1, max=65535),
+        reseed: bool = typer.Option(False, "--reseed", help="Re-run the fixture checks before serving."),
+    ):
+        """Seed the demo ledger if needed and serve its dashboard."""
+        with errors(False):
+            root = history.demo_home()
+            if reseed or not (root / "history.sqlite").is_file():
+                typer.echo("Seeding demo history (this may take 1–3 minutes)...")
+                result = history.seed_demo_history(reseed=reseed)
+                typer.echo(f"Seeded {result['scans']} scans with {result['findings']} findings.")
+                token = history.LEDGER.set(root)
+                try:
+                    for sid in result["injection_scan_ids"]:
+                        if history.detail(sid)["repair"]:
+                            typer.echo(f"  Injection scan: http://localhost:{port}/review/{sid}/repair")
+                finally:
+                    history.LEDGER.reset(token)
+            typer.echo(f"Starting server at http://localhost:{port} (demo mode)")
+            serve_dashboard(port, root)

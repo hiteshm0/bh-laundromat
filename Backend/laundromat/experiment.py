@@ -126,7 +126,8 @@ def arm(system, files, safe, *, before_files=None):
             result["raw_predictions_complete"] = True
         elif system == "template":
             r = pipeline.inspect(
-                {"snapshot": {"issues": []}, "baseline_known": before_files is not None},
+                {"snapshot": {"issues": []}, "baseline_known": before_files is not None,
+                 "skip_registry_check": True},
                 files,
                 before_files=before_files,
             )
@@ -136,8 +137,10 @@ def arm(system, files, safe, *, before_files=None):
             for candidate in r.get("repairs", []):
                 if candidate.get("test_id"):
                     edit = {"path": candidate["path"], "source": candidate["candidate"]}
-                else:
+                elif candidate["suite"] == "phase1-binding-v1":
                     edit = {"path": "search.js", "replacement": repair.REPLACEMENT.decode()}
+                else:
+                    continue
                 result["proposals"].append(edit)
         elif system in ("B", "split"):
             artifact = {"schema": 2, "proposed_files": safe}

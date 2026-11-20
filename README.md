@@ -91,7 +91,7 @@ Review reads the selected files and leaves the working bytes intact. A patch nee
 | Route guards | Supported declarations in `routes.js` against the packaged method/path policy. Undeclared routes and unsupported syntax have incomplete coverage. |
 | Dependencies | npm lockfile v2/v3 exact releases against the packaged advisory range. The owned regression exercises ordinary SQLite catalog results with the repaired lock metadata present. Third-party dependency behavior is outside that observation. |
 | Install metadata | New dependency plus a declared install hook plus complete parent coverage with no recognized use. The checker parses JS/TS module references and supported commands/config. Recorded version changes, structural warnings and the independent Node calibration have separate evidence. |
-| Similar names | Added npm names compared within their scope against the small versioned legitimate-name index. The warning reports distance, nearest names and ties. |
+| npm package names | Added names are compared with the versioned similarity index. Review also checks public npm registry availability for registry dependencies. A definitive HTTP 404 produces a P3 finding. A standalone manifest can be checked for existence without a Git baseline. The pre-push hook and synthetic replays use the offline checks. |
 
 Encoded secrets, cross-module data flow and business logic are outside the measured properties. Positive and clean results carry these limits. The scoped tools do not install repository dependencies or run their scripts.
 
@@ -110,6 +110,8 @@ This is an opt-in wrapper approval boundary. Omit `--prepared` to request the bo
 
 For snapshot repairs, use `laundromat apply SCAN_ID` and `laundromat undo SCAN_ID`. On scans with multiple repairs, select one with `--finding FINDING_ID`. The receipt records the diff, hashes, verification property, template/model origin and application actor. Legacy `setup`, `demo --json`, `apply RECEIPT`, `undo RECEIPT`, `reset` and `import-receipt RECEIPT` remain available.
 
+Text reviews and demos stream finding and fixture-check progress. JSON output contains the receipt. For a quoted credential, review the redacted substitution diff, configure the indicated environment variable, and rotate the exposed credential. To apply a reviewed structural candidate, run `laundromat apply-candidate SCAN_ID FINDING_ID`. Its private backup contains the original bytes and supports `laundromat undo SCAN_ID --finding FINDING_ID`.
+
 ## Git, history and the dashboard
 
 ```sh
@@ -117,8 +119,10 @@ laundromat install-hook /path/to/repo
 laundromat register /path/to/repo
 laundromat serve
 laundromat seed-demo-history --json
-laundromat --demo-history serve --port 8732
+laundromat serve --demo-history --port 8732
 ```
+
+`laundromat demo-serve` seeds a missing demo ledger and serves it. Use `--reseed` to refresh the fixture receipts. Once seeded, the replay dashboard can display the recorded repair and rollback with Docker offline.
 
 Hook installation is explicit and preserves existing hooks and custom hook paths. Pushes scan commit messages, intermediate file contents and all supplied refs. Detection reads outgoing Git objects. Staging follows the approval mode described above. Strong credential matches and incomplete required scans block. A P2 acknowledgement applies to the finding, repository and outgoing snapshot. A new branch may include already-published history when an exact exclusion is unavailable. Limits are 256 outgoing commits, 64 updates, 4,096 paths or blobs, 2 MB per file and 32 MB of distinct content.
 

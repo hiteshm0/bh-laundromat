@@ -109,7 +109,7 @@ def examples(scenario):
     yield "missing metadata", old, {p: v for p, v in initial.items() if p != key}
 
 
-def measure(before, files):
+def measure(before, files, progress_callback=None):
     with tempfile.TemporaryDirectory(prefix="laundromat-fixture-") as tmp:
         root = Path(tmp)
         (root / ".laundromat-fixture").touch()
@@ -119,19 +119,24 @@ def measure(before, files):
             path.write_bytes(data)
         snap, inputs = snapshot(root, list(files))
         return pipeline.inspect(
-            {"snapshot": snap, "baseline_known": True}, inputs, before_files=before
+            {"snapshot": snap, "baseline_known": True, "skip_registry_check": True},
+            inputs, before_files=before, progress_callback=progress_callback,
         )
 
 
-def run(scenario):
+def run(scenario, progress_callback=None):
     rows = []
     for label, before, files in examples(scenario):
+        if progress_callback:
+            progress_callback(f"\n[scenario] ── {label} ──")
         try:
-            result = measure(before, files)
+            result = measure(before, files, progress_callback)
         except (OSError, ValueError, TypeError) as exc:
             result = {"status": "incomplete", "issues": [str(exc)], "findings": []}
         rows.append(dict(case=label, **result))
     result = {"scenario": scenario, "provenance": "fresh synthetic fixtures", "cases": rows}
     if scenario == "supply-chain":
-        result["lifecycle_calibration"] = sandbox.run(sandbox.request("calibration"), mode="strict")
+        result["lifecycle_calibration"] = sandbox.run(
+            sandbox.request("calibration"), mode="strict", progress_callback=progress_callback
+        )
     return result

@@ -108,7 +108,14 @@ def remove_container(name, cid, remaining):
         raise ValueError("Container still present")
 
 
-def run(req, data=b"", mode="strict"):
+def report_verified_patch(callback, property_name, elapsed_ms):
+    callback(f"[sandbox] Fixture verdict for {property_name} (original FAIL → candidate PASS)")
+    callback("[sandbox] " + "━" * 45)
+    callback(f"[sandbox] EXPLOIT CONFIRMED → PATCH VERIFIED in {elapsed_ms}ms")
+    callback("[sandbox] " + "━" * 45)
+
+
+def run(req, data=b"", mode="strict", progress_callback=None):
     start = time.monotonic()
     req = req if isinstance(req, dict) else {}
     test = req.get("test_id") if isinstance(req.get("test_id"), str) else None
@@ -180,9 +187,13 @@ def run(req, data=b"", mode="strict"):
                 if not re.fullmatch(r"[0-9a-f]{64}", cid):
                     raise ValueError("Daemon returned an invalid container ID")
                 result["container_id"] = cid
+                if progress_callback:
+                    progress_callback(f"[sandbox] Spinning up isolated container ({name})...")
                 boot = time.monotonic()
                 raw = command(["docker", "start", "--attach", cid], remaining(teardown_budget))
                 result["warm_boot_ms"] = round((time.monotonic() - boot) * 1000)
+                if progress_callback:
+                    progress_callback(f"[sandbox] Container finished — start and run {result['warm_boot_ms']}ms")
             elif mode == "local":
                 raw = command(
                     ["node", str(FIXTURE / "observe.cjs"), test, str(sample)],
@@ -210,4 +221,11 @@ def run(req, data=b"", mode="strict"):
                     reason=f"Container cleanup for {name}: {exc}",
                 )
         result["duration_ms"] = round((time.monotonic() - start) * 1000)
+    if progress_callback:
+        if result["status"] == "complete":
+            progress_callback(f"[sandbox] Observations collected ({result['duration_ms']}ms)")
+        else:
+            from .provider import redact
+
+            progress_callback("[sandbox] ✗ Verifier error: " + redact(result["reason"]))
     return result

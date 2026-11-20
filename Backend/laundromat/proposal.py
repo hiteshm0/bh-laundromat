@@ -120,7 +120,7 @@ def patched(files, data):
     return result, touched
 
 
-def compare(req, old, new, paths):
+def compare(req, old, new, paths, progress_callback=None):
     before = pipeline.inspect(
         {**req, "baseline_known": True},
         {p: old[p] for p in paths if p in old},
@@ -133,6 +133,7 @@ def compare(req, old, new, paths):
         {p: new[p] for p in paths if p in new},
         before_files=old,
         context_files=new,
+        progress_callback=progress_callback,
     )
     remaining = list(before["findings"])
     positions = {}

@@ -1,8 +1,12 @@
-"""Offline npm addition review. Parse parent source as data without loading its modules."""
+"""Review npm declarations and parse parent source without loading its modules."""
 
 import json
 import re
+from http.client import HTTPException
 from pathlib import PurePosixPath as P
+from urllib.error import HTTPError
+from urllib.parse import quote
+from urllib.request import Request, urlopen
 
 from tree_sitter import Language, Parser
 import tree_sitter_javascript as javascript
@@ -36,10 +40,52 @@ def manifest_additions(before, after):
     return {name: new[name] for name in sorted(new.keys() - old.keys())}
 
 
-def literals(path, data):
+def check_registry_existence(names: list[str]) -> dict[str, bool | None]:
+    from .snapshot import TOKEN
+
+    result = {}
+    for name in dict.fromkeys(names):
+        if name.startswith("file:") or TOKEN.search(name):
+            continue
+        url = "https://registry.npmjs.org/" + quote(name, safe="")
+        try:
+            with urlopen(Request(url, method="HEAD"), timeout=4) as response:
+                result[name] = True if 200 <= response.status < 300 else None
+        except HTTPError as exc:
+            result[name] = False if exc.code == 404 else None
+            exc.close()
+        except (OSError, HTTPException, ValueError):
+            result[name] = None
+    return result
+
+
+def hallucinated_packages(path, additions):
+    from .detect import finding
+
+    # Local dependencies, aliases, tarballs and Git references need no package
+    # registered under the manifest key.
+    names = [name for name, spec in additions.items() if not re.search(r"[:/]", spec)]
+    return [
+        finding(
+            "slopsquatting", "npm.registry-404.v1", path, None, "P3", "live npm registry",
+            f"{name} was not found in the npm registry (HTTP 404). "
+            "This may be a hallucinated or mistyped package name. "
+            "Verify the correct package name before running npm install.",
+            package=name, registry_status="not_found",
+            registry_url="https://www.npmjs.com/package/" + quote(name, safe="@/"),
+        )
+        for name, exists in check_registry_existence(names).items() if exists is False
+    ]
+
+
+def parse_source(path, data):
     suffix = P(path).suffix
     lang = ".tsx" if suffix == ".tsx" else ".ts" if suffix in (".ts", ".cts", ".mts") else ".js"
-    root = Parser(LANGUAGES[lang]).parse(data).root_node
+    return Parser(LANGUAGES[lang]).parse(data).root_node
+
+
+def literals(path, data):
+    root = parse_source(path, data)
     stack, refs, unknown = [root], set(), root.has_error
     while stack:
         node = stack.pop()
