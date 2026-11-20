@@ -108,5 +108,5 @@ def dashboard_page():
 @app.get("/image.png")
 def image():
     return FileResponse(
-        Path("/media/rajath-r-prasad/OS1/projects/hackathon/laundromat/public/image.png")
+        Path("/media/rajath-r-prasad/OS1/projects/hackathon/laundromat/Frontend/public/image.png")
     )
