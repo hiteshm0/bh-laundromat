@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 from contextlib import contextmanager
 from pathlib import Path
@@ -100,8 +101,7 @@ def serve_dashboard(port, demo_root=None):
     # The server, its async tasks and to_thread workers inherit this context.
     token = history.LEDGER.set(demo_root or history.home())
     try:
-        uvicorn.run("laundromat.api:app", host="127.0.0.1", port=port,
-                    log_level="warning", access_log=False)
+        uvicorn.run("laundromat.api:app", host="127.0.0.1", port=port)
     finally:
         history.LEDGER.reset(token)
 
@@ -220,8 +220,14 @@ def register_commands(app):
         remote: str = "",
         json_mode: bool = typer.Option(False, "--json"),
     ):
+        def progress(stage):
+            typer.echo(push.PROGRESS_PREFIX + stage, err=True)
+
         with errors(json_mode):
-            result = push.decide(repo, remote, sys.stdin.read())
+            show_progress = not json_mode and os.getenv("LAUNDROMAT_PUSH_PROGRESS") == "1"
+            result = push.decide(
+                repo, remote, sys.stdin.read(), progress=progress if show_progress else None
+            )
             output(result, json_mode)
             if result["push_decision"]["action"] != "allow":
                 raise typer.Exit(1)

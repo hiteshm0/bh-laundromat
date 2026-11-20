@@ -49,9 +49,12 @@ From this checkout with the virtual environment active, select a run:
 python scripts/push_demo.py --mode developer
 python scripts/push_demo.py --mode vibe-coder
 python scripts/push_demo.py --mode vibe-coder --mock-provider
+python scripts/push_demo.py --mode developer --dashboard
 ```
 
-Each invocation creates a disposable repository, bare remote and separate SQLite ledger. The first two commands use your exported model credentials. The last uses labelled mock Responses and real scanners, Git and Docker. The script prints the receipt, exact dashboard command, review URL, and approval command or staged diff. Run the printed dashboard command to view the evidence collected while the API was offline.
+Each invocation creates a disposable repository, bare remote and separate SQLite ledger. By default the demo uses your exported model credentials. `--mock-provider` uses labelled mock Responses and real scanners, Git and Docker. The terminal shows live review progress, the verified diff, and the next command for your mode. In developer mode, the fix is staged only when you run the printed approval command.
+
+Add `--dashboard` to open the review in your browser from the same terminal. The demo starts a local dashboard on an available port and prints its URL and stop command. Use `laundromat show SCAN_ID --json` with the same `LAUNDROMAT_HOME` to read the full receipt.
 
 The packaged Rego policy handles strong credential matches and dependency acknowledgements locally. Detect reviews new code-pattern candidates with a redacted excerpt and location. For the approved inventory service, Prove authors cases over ordinary aisle names and ordered SKU results. A trusted adapter freezes the test, observes statement text and bound arguments in Docker, and records the original result. An observed binding violation allows Fix to return a one-line replacement. Certification requires the candidate to pass the frozen test, the checked-in inventory regression and the detector recheck. Other services retain static findings. Each push has at most nine provider requests, 6,500 input characters and 700 output tokens per call, a 25-second call timeout, and a 150-second window to start model work. A required role or verifier failure blocks as incomplete.
 

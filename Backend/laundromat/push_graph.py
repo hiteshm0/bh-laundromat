@@ -176,14 +176,19 @@ def policy_routes(inputs):
 
 
 class PushReview:
-    def __init__(self, repo, remote, lines):
+    def __init__(self, repo, remote, lines, progress=None):
         self.repo, self.remote, self.lines = repo, remote, lines
+        self.progress = progress
         self.mode = gate.mode(repo)
         self.started = time.monotonic()
         self.calls = 0
         self.issues = []
         self.items = {}
         self.hits = {}
+
+    def report(self, stage):
+        if self.progress is not None:
+            self.progress(stage)
 
     def collect(self, state):
         try:
@@ -251,6 +256,7 @@ class PushReview:
         )
 
     def scan(self, state):
+        self.report("scan")
         req, self.result = gate.scan_objects(
             self.repo, self.updates, self.commits, state["tips"], self.issues
         )
@@ -364,6 +370,7 @@ class PushReview:
             if route not in ("triage", "runtime"):
                 item["reason"] = "Static evidence sufficient under team policy: " + route
                 return {"outcome": "stop"}
+            self.report("review")
             source = object_bytes(self.repo, item["commit"], h["path"])
             line = h["line"] or 1
             nearby = display_source(source).splitlines()[max(0, line - 4) : line + 3]
@@ -403,6 +410,7 @@ class PushReview:
             return {"outcome": "prove"}
 
         def prove(h, item):
+            self.report("original")
             source = object_bytes(self.repo, item["commit"], h["path"])
             spec = self.call(
                 "Prove",
@@ -443,6 +451,7 @@ class PushReview:
             return {"outcome": "stop"}
 
         def fix(h, item):
+            self.report("draft")
             src = object_bytes(self.repo, item["commit"], h["path"])
             answer = self.call(
                 "Fix",
@@ -482,6 +491,7 @@ class PushReview:
             return {"outcome": "candidate"}
 
         def candidate(h, item):
+            self.report("verify")
             after = item["after"] = observe(h, item, candidate=True)
             if after["status"] != "pass":
                 raise ValueError(
@@ -602,6 +612,7 @@ class PushReview:
             return {}
         issue = scan.get("staging_issue")
         if self.mode == "vibe-coder":
+            self.report("stage")
             try:
                 push_stage.apply(self.sid, automatic=True)
                 issue = None
@@ -635,9 +646,9 @@ class PushReview:
         return {}
 
 
-def review_push(repo: Path, remote: str, lines: str):
+def review_push(repo: Path, remote: str, lines: str, *, progress=None):
     with push_stage.repository_lock(repo), tracing_context(enabled=False):
-        run = PushReview(repo, remote, lines)
+        run = PushReview(repo, remote, lines, progress)
         graph = StateGraph(PushState)
         for name in ("collect", "scan", "review", "aggregate", "authorize"):
             graph.add_node(name, getattr(run, name))

@@ -13,6 +13,7 @@ from .snapshot import LIMIT, TOKEN, git
 from .workspace import digest, json_bytes
 
 OID = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})")
+PROGRESS_PREFIX = "laundromat-progress "
 
 
 def install(repo):
@@ -127,10 +128,10 @@ def mode(repo, setting=None):
     return value
 
 
-def decide(repo, remote, lines):
+def decide(repo, remote, lines, *, progress=None):
     from .push_graph import review_push
 
-    return review_push(repository(repo), remote, lines)
+    return review_push(repository(repo), remote, lines, progress=progress)
 
 
 def scan_objects(repo, updates, commits, tips, issues):

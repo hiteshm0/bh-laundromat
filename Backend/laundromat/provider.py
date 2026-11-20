@@ -85,6 +85,8 @@ def complete(instructions, payload, limit, timeout, record):
     req = urllib.request.Request(
         url, json.dumps(body).encode(), {"Content-Type": "application/json"}
     )
+    if groq:
+        req.add_header("User-Agent", "laundromat")
     req.add_unredirected_header("Authorization", "Bearer " + key)
     record.update(origin=label, transport_attempted=True)
     with urllib.request.urlopen(req, timeout=timeout) as stream:
