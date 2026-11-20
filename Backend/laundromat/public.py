@@ -1,5 +1,6 @@
 """CLI entry points for read-only review and fixture verification."""
 
+import subprocess
 import sys
 from pathlib import Path
 import typer
@@ -7,6 +8,55 @@ import typer
 from . import gate, history, proposal, sandbox, scenarios, service
 from .snapshot import LIMIT, TOKEN, snapshot
 from .commands import errors, output
+
+
+def _banner() -> str:
+    try:
+        art = subprocess.run(
+            ["figlet", "-f", "standard", "LAUNDROMAT"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=15,
+        ).stdout
+        colored = subprocess.run(
+            ["lolcat"],
+            input=art,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=15,
+        ).stdout
+        if colored.strip():
+            return colored
+    except Exception:
+        return typer.style("LAUNDROMAT", fg=typer.colors.CYAN, bold=True)
+    return typer.style("LAUNDROMAT", fg=typer.colors.CYAN, bold=True)
+
+
+def _intro():
+    typer.echo(_banner(), color=True)
+    typer.echo(typer.style("Local vulnerability review · repair · gate", fg=typer.colors.MAGENTA, italic=True), color=True)
+    typer.echo("", color=True)
+    typer.echo(typer.style("Scan local repositories for supply-chain, secret, injection, guard and", fg=typer.colors.WHITE), color=True)
+    typer.echo(typer.style("dependency faults. Verify candidate repairs. Serve the review API.", fg=typer.colors.WHITE), color=True)
+    typer.echo("", color=True)
+    typer.echo(typer.style("Capabilities", fg=typer.colors.YELLOW, bold=True, underline=True), color=True)
+    rows = [
+        ("laundromat review <path>", "Inspect a file, directory, diff or refs"),
+        ("laundromat --demo --scenario <scenario>", "Run a built-in synthetic fault scenario"),
+        ("laundromat scan <repo>", "Synchronous snapshot scan"),
+        ("laundromat serve [--port <port>]", "Serve the FastAPI review dashboard"),
+        ("laundromat doctor", "Validate the local environment"),
+        ("laundromat gate --repo .", "Evaluate the pre-push policy"),
+    ]
+    width = max(len(c) for c, _ in rows)
+    for command, detail in rows:
+        typer.echo("  " + typer.style(f"{command:<{width}}", fg=typer.colors.GREEN, bold=True) + typer.style(f"   {detail}", fg=typer.colors.WHITE), color=True)
+    typer.echo("", color=True)
+    typer.echo(typer.style("Quick start", fg=typer.colors.YELLOW, bold=True, underline=True), color=True)
+    for step in ("laundromat doctor", "laundromat --demo", "laundromat review ."):
+        typer.echo("  " + typer.style(step, fg=typer.colors.GREEN, bold=True), color=True)
 
 
 def register(app):
@@ -18,6 +68,16 @@ def register(app):
         machine: bool = typer.Option(False, "--json"),
         demo_history: bool = typer.Option(False, "--demo-history"),
     ):
+        if (
+            ctx.invoked_subcommand is None
+            and not demo
+            and not scenario
+            and not machine
+            and not demo_history
+        ):
+            if not machine:
+                _intro()
+            raise typer.Exit(0)
         if demo_history:
             history.LEDGER.set(history.demo_home())
         if demo:

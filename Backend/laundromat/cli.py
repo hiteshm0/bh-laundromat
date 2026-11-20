@@ -12,7 +12,8 @@ from .snapshot import TOKEN
 from . import repair
 
 app = typer.Typer(
-    no_args_is_help=True, help="Review a local search repair against the Phase 1 fixture."
+    no_args_is_help=False,
+    help="Laundromat — local vulnerability review, repair and gate CLI",
 )
 register_commands(app)
 from .public import register
