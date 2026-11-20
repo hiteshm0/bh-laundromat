@@ -1,0 +1,12 @@
+{
+  "harness_hashes": {
+    "adapters/owned-v1.json": "8702f5a6f150ee0e8aeccaf1f19db14b28401e3ebf8a602b30bc17f95b7c914b",
+    "calibration/package.json": "634b88d33ad91df733e7b7968e32a4a46110699e95734ab78ced89992cc0463e",
+    "observe.cjs": "3a365fe785e8fc51bc0c10db54990d3fcff290ad5b919c79e8ba715caaa84961",
+    "owned.cjs": "0077578aeb6f4f77d009f910d388794b91587393177773909bf19df6200cce95",
+    "suite.json": "d2777195756de36e56d27adbbc483fca5b81d2fa39621928b77e679b509c7045"
+  },
+  "image": "bh-laundromat-verifier@sha256:76bdff6ac10402077751763cb84363f95ec89b1374723121c19aa4f96ddc1ff8",
+  "platform": "linux/arm64",
+  "suite_digest": "53ccf14435d9f9e5710968a52c9e3675eb039750e236fe4de3d360d35e33335d"
+}

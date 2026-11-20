@@ -1,0 +1,9 @@
+{
+  "name": "laundromat-lifecycle-calibration",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "install": "node -e \"console.log('fixture-install-stage')\"",
+    "postinstall": "node --version"
+  }
+}

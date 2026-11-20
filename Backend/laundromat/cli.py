@@ -1,13 +1,23 @@
 import json
 import shlex
+import re
 from contextlib import contextmanager
 from pathlib import Path
 
 import typer
 
 from . import review, workspace
+from .commands import register_commands
+from .snapshot import TOKEN
+from . import repair
 
-app = typer.Typer(no_args_is_help=True, help="Review a local search repair against the Phase 1 fixture.")
+app = typer.Typer(
+    no_args_is_help=True, help="Review a local search repair against the Phase 1 fixture."
+)
+register_commands(app)
+from .public import register
+
+register(app)
 
 
 @contextmanager
@@ -17,9 +27,11 @@ def command(*, json_output=False):
             yield
     except (OSError, ValueError, KeyError, TypeError) as exc:
         if json_output:
-            typer.echo(json.dumps({"verdict": "incomplete", "reason": str(exc)}))
+            typer.echo(
+                json.dumps({"verdict": "incomplete", "reason": TOKEN.sub("[redacted]", str(exc))})
+            )
         else:
-            typer.echo(str(exc), err=True)
+            typer.echo(TOKEN.sub("[redacted]", str(exc)), err=True)
         raise typer.Exit(2) from exc
 
 
@@ -44,9 +56,11 @@ def column(phase):
         return {}
     scan = phase["semgrep"]
     values = {
-        "Semgrep findings": str(len(scan["findings"])) if scan["status"] == "complete" else scan["status"],
+        "Semgrep findings": str(len(scan["findings"]))
+        if scan["status"] == "complete"
+        else scan["status"],
         "Safe control clean": scan.get("negative_control", "incomplete"),
-        "SQL binding": phase["binding"]["status"],
+        "Parameter binding": phase["binding"]["status"],
         "SQLite row IDs": phase["sqlite"]["status"],
     }
     for row in phase["sqlite"].get("results", []):
@@ -77,7 +91,9 @@ def show(receipt):
 
 
 @app.command()
-def demo(json_output: bool = typer.Option(False, "--json", help="Print the complete receipt as JSON.")):
+def demo(
+    json_output: bool = typer.Option(False, "--json", help="Print the complete receipt as JSON."),
+):
     """Scan and check a candidate copy. Leave the workspace source untouched."""
     with command(json_output=json_output):
         receipt = review.review()
@@ -89,16 +105,38 @@ def demo(json_output: bool = typer.Option(False, "--json", help="Print the compl
 
 
 @app.command()
-def apply(receipt: Path):
+def apply(
+    receipt: Path,
+    finding: str = typer.Option(None, "--finding"),
+    json_output: bool = typer.Option(False, "--json"),
+):
     """Apply the verified candidate from RECEIPT to the disposable search file."""
-    with command():
+    with command(json_output=json_output):
+        if re.fullmatch(r"[0-9a-f]{32}", str(receipt)):
+            typer.echo(json.dumps(repair.change(str(receipt), False, finding)))
+            return
         review.change(receipt, undo=False)
-    typer.echo(f"Applied to {workspace.WORK / workspace.SEARCH}")
+    typer.echo(
+        json.dumps({"state": "applied"})
+        if json_output
+        else f"Applied to {workspace.WORK / workspace.SEARCH}"
+    )
 
 
 @app.command()
-def undo(receipt: Path):
+def undo(
+    receipt: Path,
+    finding: str = typer.Option(None, "--finding"),
+    json_output: bool = typer.Option(False, "--json"),
+):
     """Restore the original bytes saved when RECEIPT was applied."""
-    with command():
+    with command(json_output=json_output):
+        if re.fullmatch(r"[0-9a-f]{32}", str(receipt)):
+            typer.echo(json.dumps(repair.change(str(receipt), True, finding)))
+            return
         review.change(receipt, undo=True)
-    typer.echo(f"Restored {workspace.WORK / workspace.SEARCH}")
+    typer.echo(
+        json.dumps({"state": "restored"})
+        if json_output
+        else f"Restored {workspace.WORK / workspace.SEARCH}"
+    )

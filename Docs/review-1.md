@@ -54,7 +54,7 @@ The adapter probe calls the exported search twice and records each SQL string pa
 ## Repeat the acceptance checks
 
 ```sh
-python -m unittest discover -s Backend/tests -v
+python -m unittest discover -s Backend/tests -p test_phase1.py -v
 ```
 
 The checks use temporary checkouts. They compare two fresh receipts, verify apply and undo byte-for-byte, and exercise stale files, missing Semgrep, and mismatched expected IDs.

@@ -1,0 +1,6 @@
+{
+  "name": "phantom-dep",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": { "postinstall": "node --version" }
+}

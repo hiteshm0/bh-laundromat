@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "tests": {
+    "binding": "parameter binding",
+    "sqlite": "ordinary search IDs",
+    "calibration": "Node lifecycle convention",
+    "argv": "literal argument-vector separation",
+    "roles": "instruction/data separation",
+    "access": "declared fixture route access matrix",
+    "advisory": "resolved version and fixture catalog regression",
+    "configuration": "environment-backed fixture configuration"
+  },
+  "calibration_marker": "v22.21.0"
+}

@@ -1,5 +1,21 @@
 const fs = require("node:fs");
 const path = require("node:path");
+if (process.argv[2] === "calibration") {
+  const { execFileSync } = require("node:child_process");
+  // Invoke the image-owned script convention only. npm run performs no package installation.
+  const output = execFileSync("npm", ["run", "--offline", "--silent", "install"], {
+    cwd: path.join(__dirname, "calibration"), encoding: "utf8", timeout: 10000,
+    env: { PATH: process.env.PATH, HOME: "/tmp", npm_config_cache: "/tmp/npm-cache",
+           npm_config_userconfig: "/dev/null", npm_config_update_notifier: "false" }
+  });
+  const stages = output.trim().split(/\r?\n/);
+  console.log(JSON.stringify({ stages }));
+  process.exit(0);
+}
+if (["argv", "roles", "access", "advisory", "configuration"].includes(process.argv[2])) {
+  console.log(JSON.stringify(require("./owned.cjs").observe(process.argv[2], process.argv[3])));
+  process.exit(0);
+}
 const { search } = require(path.resolve(process.argv[3]));
 const cases = require("./cases.json");
 

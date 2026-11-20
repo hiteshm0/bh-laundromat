@@ -1,0 +1,11 @@
+--- a/package.json
++++ b/package.json
+@@ -1,5 +1,7 @@
+ {
+   "name": "laundromat-example",
+   "private": true,
+-  "dependencies": {}
++  "dependencies": {
++    "phantom-dep": "file:./phantom-dep"
++  }
+ }

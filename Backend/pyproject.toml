@@ -4,12 +4,25 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bh-laundromat"
-version = "0.1.0"
+version = "0.2.0"
 requires-python = ">=3.11"
-dependencies = ["typer==0.29.2", "semgrep==1.186.0"]
+dependencies = ["tree-sitter==0.25.2", "tree-sitter-javascript==0.25.0", "tree-sitter-typescript==0.23.2", "typer==0.29.2", "semgrep==1.186.0", "fastapi==0.135.1", "pydantic==2.14.4", "uvicorn==0.54.0"]
 
 [project.scripts]
 laundromat = "laundromat.cli:app"
+laundromat-install-gitleaks = "laundromat.install_scanner:main"
 
 [tool.setuptools]
 packages = ["laundromat"]
+
+[tool.setuptools.package-data]
+laundromat = [
+  "assets/rules/*.yml", "assets/rules/*.json", "assets/rules/*.toml",
+  "assets/demo/owned.cjs", "assets/demo/observe.cjs", "assets/demo/suite.json", "assets/demo/cases.json",
+  "assets/demo/seed.sql", "assets/demo/verifier.Dockerfile", "assets/demo/image-pin.json",
+  "assets/demo/fixture/*.js", "assets/demo/recorded/*.json", "assets/demo/recorded/*.js",
+  "assets/demo/supply-chain/*.json", "assets/demo/supply-chain/*.diff",
+  "assets/demo/supply-chain/src/*.mjs", "assets/demo/supply-chain/phantom-dep/package.json",
+  "assets/demo/calibration/package.json", "assets/demo/adapters/*.json", "assets/dashboard/index.html", "assets/dashboard/assets/*.js",
+  "assets/dashboard/assets/*.css"
+]

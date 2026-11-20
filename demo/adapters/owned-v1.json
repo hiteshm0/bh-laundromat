@@ -1,0 +1,27 @@
+{
+  "argv": {
+    "category": "command", "property":"literal argument-vector separation", "path":"command.js",
+    "before":"exports.run = (run, label) => run('catalog ' + label);\n",
+    "after":"exports.run = (run, label) => run('catalog', [label]);\n"
+  },
+  "roles": {
+    "category":"prompt", "property":"instruction/data separation", "path":"prompt.js",
+    "before":"exports.messages = text => [{role: 'system', content: 'Summarize ' + text}];\n",
+    "after":"exports.messages = text => [{role: 'system', content: 'Summarize'}, {role: 'user', content: text}];\n"
+  },
+  "access": {
+    "category":"guard", "property":"declared fixture route access matrix", "path":"routes.js",
+    "before":"router.post(\"/orders\", saveOrder);\n",
+    "after":"router.post(\"/orders\", requireUser, saveOrder);\n"
+  },
+  "advisory": {
+    "category":"dependency", "property":"resolved version and fixture catalog regression", "path":"package-lock.json",
+    "before":"{\"lockfileVersion\":3,\"packages\":{\"node_modules/lodash\":{\"version\":\"4.17.18\"}}}\n",
+    "after":"{\"lockfileVersion\":3,\"packages\":{\"node_modules/lodash\":{\"version\":\"4.17.19\"}}}\n"
+  },
+  "configuration": {
+    "category":"secret", "property":"environment-backed fixture configuration", "path":"config.js",
+    "before":"exports.key = () => 'LMTEST_{{INERT}}';\n",
+    "after":"exports.key = () => process.env.CATALOG_KEY;\n"
+  }
+}

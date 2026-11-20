@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "routes": {
+    "/orders": "requireUser",
+    "/orders/:id": "requireUser",
+    "/about": null,
+    "/health": null,
+    "POST /orders": "requireUser"
+  }
+}

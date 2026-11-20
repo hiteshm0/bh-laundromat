@@ -1,0 +1,347 @@
+{
+  "doctor": {
+    "cleanup_status": "removed",
+    "container_id": "33a9e88afb1dad01f80c4328298b7d09342a7d02efb45a1b31231ccf9216bfd3",
+    "duration_ms": 386,
+    "input_hashes": {},
+    "observations": {
+      "stages": [
+        "fixture-install-stage",
+        "v22.21.0"
+      ]
+    },
+    "property": "Node lifecycle convention",
+    "runtime": "bh-laundromat-verifier@sha256:76bdff6ac10402077751763cb84363f95ec89b1374723121c19aa4f96ddc1ff8",
+    "status": "complete",
+    "suite_digest": "53ccf14435d9f9e5710968a52c9e3675eb039750e236fe4de3d360d35e33335d",
+    "warm_boot_ms": 272
+  },
+  "scenarios": {
+    "secret": [
+      {
+        "case": "configuration before",
+        "status": "findings",
+        "candidates": 1,
+        "verified": 1
+      },
+      {
+        "case": "configuration after",
+        "status": "clean",
+        "candidates": 0,
+        "verified": 0
+      },
+      {
+        "case": "ghp_literal",
+        "status": "findings",
+        "candidates": 1,
+        "verified": 0
+      },
+      {
+        "case": "ghp_short look-alike",
+        "status": "clean",
+        "candidates": 0,
+        "verified": 0
+      },
+      {
+        "case": "github_pat_literal",
+        "status": "findings",
+        "candidates": 1,
+        "verified": 0
+      },
+      {
+        "case": "github_pat_short look-alike",
+        "status": "clean",
+        "candidates": 0,
+        "verified": 0
+      },
+      {
+        "case": "sk-proj-literal",
+        "status": "findings",
+        "candidates": 1,
+        "verified": 0
+      },
+      {
+        "case": "sk-proj-short look-alike",
+        "status": "clean",
+        "candidates": 0,
+        "verified": 0
+      },
+      {
+        "case": "AKIAliteral",
+        "status": "findings",
+        "candidates": 1,
+        "verified": 0
+      },
+      {
+        "case": "AKIAshort look-alike",
+        "status": "clean",
+        "candidates": 0,
+        "verified": 0
+      }
+    ],
+    "injection": [
+      {
+        "case": "SQL binding",
+        "status": "findings",
+        "candidates": 1,
+        "verified": 1
+      },
+      {
+        "case": "bound control",
+        "status": "clean",
+        "candidates": 0,
+        "verified": 0
+      },
+      {
+        "case": "argv before",
+        "status": "findings",
+        "candidates": 1,
+        "verified": 1
+      },
+      {
+        "case": "argv after",
+        "status": "clean",
+        "candidates": 0,
+        "verified": 0
+      },
+      {
+        "case": "roles before",
+        "status": "findings",
+        "candidates": 1,
+        "verified": 1
+      },
+      {
+        "case": "roles after",
+        "status": "clean",
+        "candidates": 0,
+        "verified": 0
+      }
+    ],
+    "guard": [
+      {
+        "case": "access before",
+        "status": "findings",
+        "candidates": 1,
+        "verified": 1
+      },
+      {
+        "case": "access after",
+        "status": "clean",
+        "candidates": 0,
+        "verified": 0
+      },
+      {
+        "case": "recorded routes",
+        "status": "findings",
+        "candidates": 1,
+        "verified": 0
+      },
+      {
+        "case": "unknown route",
+        "status": "incomplete",
+        "candidates": 0,
+        "verified": 0
+      }
+    ],
+    "dependency": [
+      {
+        "case": "advisory before",
+        "status": "findings",
+        "candidates": 1,
+        "verified": 1
+      },
+      {
+        "case": "advisory after",
+        "status": "clean",
+        "candidates": 0,
+        "verified": 0
+      },
+      {
+        "case": "recorded advisory",
+        "status": "findings",
+        "candidates": 1,
+        "verified": 0
+      }
+    ],
+    "supply-chain": [
+      {
+        "case": "new unused install declaration",
+        "status": "findings",
+        "candidates": 1,
+        "verified": 0
+      },
+      {
+        "case": "imported subpath",
+        "status": "clean",
+        "candidates": 0,
+        "verified": 0
+      },
+      {
+        "case": "dynamic unknown",
+        "status": "incomplete",
+        "candidates": 0,
+        "verified": 0
+      },
+      {
+        "case": "documented build command",
+        "status": "clean",
+        "candidates": 0,
+        "verified": 0
+      },
+      {
+        "case": "hook-free addition",
+        "status": "clean",
+        "candidates": 0,
+        "verified": 0
+      },
+      {
+        "case": "unchanged dependency",
+        "status": "clean",
+        "candidates": 0,
+        "verified": 0
+      },
+      {
+        "case": "missing metadata",
+        "status": "incomplete",
+        "candidates": 0,
+        "verified": 0
+      }
+    ],
+    "slopsquatting": [
+      {
+        "case": "expres",
+        "status": "findings",
+        "candidates": 1,
+        "verified": 0
+      },
+      {
+        "case": "experss",
+        "status": "findings",
+        "candidates": 1,
+        "verified": 0
+      },
+      {
+        "case": "react",
+        "status": "clean",
+        "candidates": 0,
+        "verified": 0
+      },
+      {
+        "case": "@types/raect",
+        "status": "findings",
+        "candidates": 1,
+        "verified": 0
+      },
+      {
+        "case": "og",
+        "status": "findings",
+        "candidates": 1,
+        "verified": 0
+      },
+      {
+        "case": "os",
+        "status": "findings",
+        "candidates": 1,
+        "verified": 0
+      },
+      {
+        "case": "lodahs",
+        "status": "findings",
+        "candidates": 1,
+        "verified": 0
+      },
+      {
+        "case": "typescritp",
+        "status": "findings",
+        "candidates": 1,
+        "verified": 0
+      },
+      {
+        "case": "unrelated-catalog",
+        "status": "clean",
+        "candidates": 0,
+        "verified": 0
+      }
+    ]
+  },
+  "demo_replay": {
+    "findings": 20,
+    "provenance": "demo replay",
+    "scans": 39
+  },
+  "local_push_tip": "b175aa22141d0898c81fbbd3096756726122413e",
+  "wheel": "bh_laundromat-0.2.0-py3-none-any.whl",
+  "sha256": "704d4250b25ad824513c5cb7d15e73167a546bfed60cc0940366de89f5a8bff7",
+  "contents": [
+    "bh_laundromat-0.2.0.dist-info/METADATA",
+    "bh_laundromat-0.2.0.dist-info/RECORD",
+    "bh_laundromat-0.2.0.dist-info/WHEEL",
+    "bh_laundromat-0.2.0.dist-info/entry_points.txt",
+    "bh_laundromat-0.2.0.dist-info/top_level.txt",
+    "laundromat/__init__.py",
+    "laundromat/api.py",
+    "laundromat/assets/dashboard/assets/index-C0qk--Py.css",
+    "laundromat/assets/dashboard/assets/index-kb9HbWE5.js",
+    "laundromat/assets/dashboard/index.html",
+    "laundromat/assets/demo/adapters/owned-v1.json",
+    "laundromat/assets/demo/calibration/package.json",
+    "laundromat/assets/demo/cases.json",
+    "laundromat/assets/demo/fixture/safe-search.js",
+    "laundromat/assets/demo/fixture/search.js",
+    "laundromat/assets/demo/image-pin.json",
+    "laundromat/assets/demo/observe.cjs",
+    "laundromat/assets/demo/owned.cjs",
+    "laundromat/assets/demo/recorded/package-lock.json",
+    "laundromat/assets/demo/recorded/recorded-package.json",
+    "laundromat/assets/demo/recorded/routes.js",
+    "laundromat/assets/demo/seed.sql",
+    "laundromat/assets/demo/suite.json",
+    "laundromat/assets/demo/supply-chain/after.json",
+    "laundromat/assets/demo/supply-chain/before.json",
+    "laundromat/assets/demo/supply-chain/phantom-dep/package.json",
+    "laundromat/assets/demo/supply-chain/proposal.diff",
+    "laundromat/assets/demo/supply-chain/src/app.mjs",
+    "laundromat/assets/demo/verifier.Dockerfile",
+    "laundromat/assets/rules/advisories.json",
+    "laundromat/assets/rules/composed-query.yml",
+    "laundromat/assets/rules/interpolated-search.yml",
+    "laundromat/assets/rules/names-v1.json",
+    "laundromat/assets/rules/npm-metadata-v1.json",
+    "laundromat/assets/rules/policy.json",
+    "laundromat/assets/rules/synthetic.toml",
+    "laundromat/capture.py",
+    "laundromat/checks.py",
+    "laundromat/cli.py",
+    "laundromat/commands.py",
+    "laundromat/detect.py",
+    "laundromat/experiment.py",
+    "laundromat/gate.py",
+    "laundromat/history.py",
+    "laundromat/install_scanner.py",
+    "laundromat/legacy.py",
+    "laundromat/manifests.py",
+    "laundromat/owned.py",
+    "laundromat/pipeline.py",
+    "laundromat/proposal.py",
+    "laundromat/provider.py",
+    "laundromat/public.py",
+    "laundromat/repair.py",
+    "laundromat/review.py",
+    "laundromat/sandbox.py",
+    "laundromat/scenarios.py",
+    "laundromat/service.py",
+    "laundromat/snapshot.py",
+    "laundromat/workspace.py"
+  ],
+  "original_sha256": "2ff4c4305367223fe57bdc351cb27f7189dc2f44a637ad78e5fb452f4885a475",
+  "applied_sha256": "abd990ba91465f1fb27c4bf5b4a790c081c6871ab21885e42a4b56b9af4e818c",
+  "restored_sha256": "2ff4c4305367223fe57bdc351cb27f7189dc2f44a637ad78e5fb452f4885a475",
+  "runtime": "strict",
+  "dashboard_assets": [
+    "assets/index-kb9HbWE5.js",
+    "assets/index-C0qk--Py.css"
+  ],
+  "phase1": "verified",
+  "installed_hook": "pre-push",
+  "elapsed_ms": 119279
+}

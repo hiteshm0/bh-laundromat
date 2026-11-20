@@ -1,0 +1,14 @@
+{
+  "source": "GitHub Reviewed Advisory Database",
+  "date": "2025-08-12",
+  "entries": [
+    {
+      "id": "GHSA-p6mc-m468-83gw",
+      "url": "https://github.com/advisories/GHSA-p6mc-m468-83gw",
+      "ecosystem": "npm",
+      "name": "lodash",
+      "introduced": "3.7.0",
+      "fixed": "4.17.19"
+    }
+  ]
+}

@@ -1,0 +1,393 @@
+{
+  "passed": 5,
+  "runs": [
+    {
+      "trigger": "prepared task replay",
+      "scan": "6cd4ac6471a3420cadcb42b3a2db2517",
+      "task_to_verdict_ms": 3370,
+      "task_to_verified_patch_ms": 3370,
+      "applied": "4017741aeef0f2c10da64d642599dd2df19b717ba0539facfb0e7257aa66cda1",
+      "restored": "f9ba50087b79bc591469ca4e459f649b6001f4558acf6f51f10489f7ac796feb",
+      "repair_ms": 1993,
+      "first_push": {
+        "scan": "8631fbafede04f9fa338eda01ba6e0ec",
+        "action": "allow",
+        "reason": "Local policy checks satisfied",
+        "pending": [],
+        "elapsed_ms": 811,
+        "hook_ms": 476,
+        "commits": 1
+      },
+      "blocked": {
+        "scan": "99034c32514d40cf9cf4cd7623c8ffad",
+        "action": "block",
+        "reason": "Strong synthetic credential in outgoing history",
+        "pending": [],
+        "elapsed_ms": 877,
+        "hook_ms": 762,
+        "commits": 2
+      },
+      "allowed": {
+        "scan": "114b40730ffe499a899f5dd9e1b552ad",
+        "action": "allow",
+        "reason": "Local policy checks satisfied",
+        "pending": [],
+        "elapsed_ms": 606,
+        "hook_ms": 464,
+        "commits": 1
+      },
+      "remote_before": "4bc3f66e7bd897f4c5fbcdf66d490a5a9bd773db",
+      "remote_after": "0e4cc15ac0f450837f0471d12b24ce820bea0ab4",
+      "warning": {
+        "scan": "4433dd8abc944144a0f46f33aacc215d",
+        "action": "acknowledge",
+        "reason": "P2 warning requires acknowledgement for this finding and snapshot",
+        "pending": [
+          "add7bf4d7a443d681a436aeb"
+        ],
+        "elapsed_ms": 726,
+        "hook_ms": 610,
+        "commits": 1
+      },
+      "acknowledged": {
+        "scan": "4ad908125cc24088ac364140fc97a7d6",
+        "action": "allow",
+        "reason": "Local policy checks satisfied",
+        "pending": [],
+        "elapsed_ms": 756,
+        "hook_ms": 614,
+        "commits": 1
+      },
+      "outage": {
+        "scan": "1a8901a0132142f487ba0b5f09fd40a3",
+        "action": "block",
+        "reason": "Required scan incomplete: Command '['gitleaks', 'version']' returned non-zero exit status 3.",
+        "pending": [],
+        "elapsed_ms": 343,
+        "hook_ms": 220,
+        "commits": 1
+      },
+      "multi_ref": {
+        "scan": "6de654afe716485083d3da2ce3e664ea",
+        "action": "allow",
+        "reason": "Local policy checks satisfied",
+        "pending": [],
+        "elapsed_ms": 759,
+        "hook_ms": 616,
+        "commits": 1
+      },
+      "elapsed_ms": 9967
+    },
+    {
+      "trigger": "prepared task replay",
+      "scan": "57b8ce2d0c9d4f39987cf1b34badc9d4",
+      "task_to_verdict_ms": 3299,
+      "task_to_verified_patch_ms": 3299,
+      "applied": "4017741aeef0f2c10da64d642599dd2df19b717ba0539facfb0e7257aa66cda1",
+      "restored": "f9ba50087b79bc591469ca4e459f649b6001f4558acf6f51f10489f7ac796feb",
+      "repair_ms": 1941,
+      "first_push": {
+        "scan": "9809ff017aae49d39c14694c741e1179",
+        "action": "allow",
+        "reason": "Local policy checks satisfied",
+        "pending": [],
+        "elapsed_ms": 772,
+        "hook_ms": 454,
+        "commits": 1
+      },
+      "blocked": {
+        "scan": "2c7826291a1045fb952554a08f24d1a6",
+        "action": "block",
+        "reason": "Strong synthetic credential in outgoing history",
+        "pending": [],
+        "elapsed_ms": 872,
+        "hook_ms": 759,
+        "commits": 2
+      },
+      "allowed": {
+        "scan": "893e2b4d17ac4314a542ffc6f17234a5",
+        "action": "allow",
+        "reason": "Local policy checks satisfied",
+        "pending": [],
+        "elapsed_ms": 604,
+        "hook_ms": 464,
+        "commits": 1
+      },
+      "remote_before": "a3fc72f1b9bb9da67cbd77c250627b23d4a6642d",
+      "remote_after": "c5b4469ec4378c6cf74bdee462517c13a1d14b2a",
+      "warning": {
+        "scan": "478790fc458f470d809410f5b5666c0b",
+        "action": "acknowledge",
+        "reason": "P2 warning requires acknowledgement for this finding and snapshot",
+        "pending": [
+          "add7bf4d7a443d681a436aeb"
+        ],
+        "elapsed_ms": 725,
+        "hook_ms": 609,
+        "commits": 1
+      },
+      "acknowledged": {
+        "scan": "59b5f64d3ba34da19571554b369c5248",
+        "action": "allow",
+        "reason": "Local policy checks satisfied",
+        "pending": [],
+        "elapsed_ms": 772,
+        "hook_ms": 613,
+        "commits": 1
+      },
+      "outage": {
+        "scan": "3d36bdd2c8294bb3960d1f2e50715481",
+        "action": "block",
+        "reason": "Required scan incomplete: Command '['gitleaks', 'version']' returned non-zero exit status 3.",
+        "pending": [],
+        "elapsed_ms": 312,
+        "hook_ms": 191,
+        "commits": 1
+      },
+      "multi_ref": {
+        "scan": "23a1aabf1a364fc59c5ac2cf79d34fc7",
+        "action": "allow",
+        "reason": "Local policy checks satisfied",
+        "pending": [],
+        "elapsed_ms": 755,
+        "hook_ms": 612,
+        "commits": 1
+      },
+      "elapsed_ms": 9814
+    },
+    {
+      "trigger": "prepared task replay",
+      "scan": "9476dcb654a54d6cb5069dc7ff4fcef8",
+      "task_to_verdict_ms": 3256,
+      "task_to_verified_patch_ms": 3256,
+      "applied": "4017741aeef0f2c10da64d642599dd2df19b717ba0539facfb0e7257aa66cda1",
+      "restored": "f9ba50087b79bc591469ca4e459f649b6001f4558acf6f51f10489f7ac796feb",
+      "repair_ms": 1960,
+      "first_push": {
+        "scan": "fe3cfc75774e4c338358394275fd9513",
+        "action": "allow",
+        "reason": "Local policy checks satisfied",
+        "pending": [],
+        "elapsed_ms": 814,
+        "hook_ms": 457,
+        "commits": 1
+      },
+      "blocked": {
+        "scan": "852cc2e7ad0b4f3d95f7f2a115d9741d",
+        "action": "block",
+        "reason": "Strong synthetic credential in outgoing history",
+        "pending": [],
+        "elapsed_ms": 875,
+        "hook_ms": 761,
+        "commits": 2
+      },
+      "allowed": {
+        "scan": "fc7a5a5a40f8471e9d9f2576af9cadc9",
+        "action": "allow",
+        "reason": "Local policy checks satisfied",
+        "pending": [],
+        "elapsed_ms": 605,
+        "hook_ms": 465,
+        "commits": 1
+      },
+      "remote_before": "38ec43671440234b519c0a868d37ed70f78480c6",
+      "remote_after": "3bd3c7e17038e5fd1f5e7d3675ce8d4b281a3d17",
+      "warning": {
+        "scan": "77e5c11ad3054f9e8dce6feb30ae9271",
+        "action": "acknowledge",
+        "reason": "P2 warning requires acknowledgement for this finding and snapshot",
+        "pending": [
+          "add7bf4d7a443d681a436aeb"
+        ],
+        "elapsed_ms": 730,
+        "hook_ms": 616,
+        "commits": 1
+      },
+      "acknowledged": {
+        "scan": "3eb75d4d9c38494ab061eab82fdf5a82",
+        "action": "allow",
+        "reason": "Local policy checks satisfied",
+        "pending": [],
+        "elapsed_ms": 751,
+        "hook_ms": 608,
+        "commits": 1
+      },
+      "outage": {
+        "scan": "701782bb95b540aaa60b7cc5fa0272b6",
+        "action": "block",
+        "reason": "Required scan incomplete: Command '['gitleaks', 'version']' returned non-zero exit status 3.",
+        "pending": [],
+        "elapsed_ms": 329,
+        "hook_ms": 206,
+        "commits": 1
+      },
+      "multi_ref": {
+        "scan": "6ab6f428489c4800b5ad47a07b37bb4f",
+        "action": "allow",
+        "reason": "Local policy checks satisfied",
+        "pending": [],
+        "elapsed_ms": 756,
+        "hook_ms": 614,
+        "commits": 1
+      },
+      "elapsed_ms": 9811
+    },
+    {
+      "trigger": "prepared task replay",
+      "scan": "acf288ea9e054791bd42ccf76f600844",
+      "task_to_verdict_ms": 3275,
+      "task_to_verified_patch_ms": 3275,
+      "applied": "4017741aeef0f2c10da64d642599dd2df19b717ba0539facfb0e7257aa66cda1",
+      "restored": "f9ba50087b79bc591469ca4e459f649b6001f4558acf6f51f10489f7ac796feb",
+      "repair_ms": 1933,
+      "first_push": {
+        "scan": "e2ead9d412ca40b09a4d80920c05f86f",
+        "action": "allow",
+        "reason": "Local policy checks satisfied",
+        "pending": [],
+        "elapsed_ms": 880,
+        "hook_ms": 458,
+        "commits": 1
+      },
+      "blocked": {
+        "scan": "4cbf06bed41e4e0f981c5655c4e55a25",
+        "action": "block",
+        "reason": "Strong synthetic credential in outgoing history",
+        "pending": [],
+        "elapsed_ms": 875,
+        "hook_ms": 760,
+        "commits": 2
+      },
+      "allowed": {
+        "scan": "1eef531ca3b34342817f1eccc1695b7d",
+        "action": "allow",
+        "reason": "Local policy checks satisfied",
+        "pending": [],
+        "elapsed_ms": 605,
+        "hook_ms": 465,
+        "commits": 1
+      },
+      "remote_before": "8bdbce0f16b4b3b7da20913300a9f6eec03b0b31",
+      "remote_after": "761670680ef1348981d3b8e55333538dbd624726",
+      "warning": {
+        "scan": "00453cc8721348ed9c5e1a69a2c91db2",
+        "action": "acknowledge",
+        "reason": "P2 warning requires acknowledgement for this finding and snapshot",
+        "pending": [
+          "add7bf4d7a443d681a436aeb"
+        ],
+        "elapsed_ms": 727,
+        "hook_ms": 612,
+        "commits": 1
+      },
+      "acknowledged": {
+        "scan": "83fefa7c09ae482f91314b185a5583da",
+        "action": "allow",
+        "reason": "Local policy checks satisfied",
+        "pending": [],
+        "elapsed_ms": 753,
+        "hook_ms": 610,
+        "commits": 1
+      },
+      "outage": {
+        "scan": "8b4d3ab86809436abc995b5673454fb8",
+        "action": "block",
+        "reason": "Required scan incomplete: Command '['gitleaks', 'version']' returned non-zero exit status 3.",
+        "pending": [],
+        "elapsed_ms": 372,
+        "hook_ms": 250,
+        "commits": 1
+      },
+      "multi_ref": {
+        "scan": "5e340888a16f474a9ab6572c7e5d1a8b",
+        "action": "allow",
+        "reason": "Local policy checks satisfied",
+        "pending": [],
+        "elapsed_ms": 754,
+        "hook_ms": 614,
+        "commits": 1
+      },
+      "elapsed_ms": 9945
+    },
+    {
+      "trigger": "prepared task replay",
+      "scan": "4d2326fb78734204a49440531abacb27",
+      "task_to_verdict_ms": 3257,
+      "task_to_verified_patch_ms": 3257,
+      "applied": "4017741aeef0f2c10da64d642599dd2df19b717ba0539facfb0e7257aa66cda1",
+      "restored": "f9ba50087b79bc591469ca4e459f649b6001f4558acf6f51f10489f7ac796feb",
+      "repair_ms": 1934,
+      "first_push": {
+        "scan": "b3e8fe177e5f40c992da6568e935ea11",
+        "action": "allow",
+        "reason": "Local policy checks satisfied",
+        "pending": [],
+        "elapsed_ms": 776,
+        "hook_ms": 461,
+        "commits": 1
+      },
+      "blocked": {
+        "scan": "b73446c2464d49b2b08e622767c96fb3",
+        "action": "block",
+        "reason": "Strong synthetic credential in outgoing history",
+        "pending": [],
+        "elapsed_ms": 872,
+        "hook_ms": 756,
+        "commits": 2
+      },
+      "allowed": {
+        "scan": "191dfd0acd904163a71a507d6e93fd10",
+        "action": "allow",
+        "reason": "Local policy checks satisfied",
+        "pending": [],
+        "elapsed_ms": 608,
+        "hook_ms": 466,
+        "commits": 1
+      },
+      "remote_before": "20971757ab8c5fa59d6585ff93d16a42e8f20232",
+      "remote_after": "5920c61290deb346ae8823ec962283d8d6ac6421",
+      "warning": {
+        "scan": "874d5491ac23461e81b3ff4cc13802ad",
+        "action": "acknowledge",
+        "reason": "P2 warning requires acknowledgement for this finding and snapshot",
+        "pending": [
+          "add7bf4d7a443d681a436aeb"
+        ],
+        "elapsed_ms": 727,
+        "hook_ms": 611,
+        "commits": 1
+      },
+      "acknowledged": {
+        "scan": "fd8fd6b8713f4a1a8349d0aac64a5387",
+        "action": "allow",
+        "reason": "Local policy checks satisfied",
+        "pending": [],
+        "elapsed_ms": 753,
+        "hook_ms": 611,
+        "commits": 1
+      },
+      "outage": {
+        "scan": "a3ed6a992da24a12b7218b53a03af0de",
+        "action": "block",
+        "reason": "Required scan incomplete: Command '['gitleaks', 'version']' returned non-zero exit status 3.",
+        "pending": [],
+        "elapsed_ms": 507,
+        "hook_ms": 371,
+        "commits": 1
+      },
+      "multi_ref": {
+        "scan": "76d5b68269354c15a543221a19c2e83a",
+        "action": "allow",
+        "reason": "Local policy checks satisfied",
+        "pending": [],
+        "elapsed_ms": 762,
+        "hook_ms": 620,
+        "commits": 1
+      },
+      "elapsed_ms": 9972
+    }
+  ],
+  "clean_branch_interruptions": 0,
+  "successful_clean_pushes": 10,
+  "scope": "initial and clean main pushes in successful rehearsals"
+}

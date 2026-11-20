@@ -1,4 +1,27 @@
-.venv/
+# Local Laundromat state
 .laundromat/
+.laundromat-history/
+/.laundromat-setup-*/
+*.sqlite*
+
+# Python environments, caches, and build output
+.venv/
 __pycache__/
+*.py[co]
+.ruff_cache/
+.pytest_cache/
 *.egg-info/
+/Backend/build/
+/Backend/dist/
+
+# Frontend dependencies and build output
+node_modules/
+/Frontend/dist/
+*.tsbuildinfo
+npm-debug.log*
+
+# Local configuration and macOS metadata
+.env
+.env.local
+.env.*.local
+.DS_Store

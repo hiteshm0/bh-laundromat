@@ -1,0 +1,11 @@
+rules:
+  - id: laundromat.concatenated-query
+    languages: [javascript]
+    severity: WARNING
+    message: SQL text is constructed with a value. This query style needs manual review.
+    pattern: 'const $SQL = "SELECT id FROM swatches WHERE color = ''" + $TERM + "''";'
+  - id: laundromat.composed-prepare
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: Prepared statement receives concatenated text. Check argument binding.
+    pattern: $DB.prepare($TEXT + $VALUE)

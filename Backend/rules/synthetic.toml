@@ -1,0 +1,25 @@
+title = "Laundromat synthetic credentials v1"
+[[rules]]
+id = "laundromat-synthetic-credential"
+description = "Nonfunctional team test credential"
+regex = '''\bLMTEST_[A-Z0-9]{20,32}\b'''
+
+[[rules]]
+id = "github-pat"
+description = "Pinned credential format"
+regex = '\bghp_[A-Za-z0-9]{36}\b'
+
+[[rules]]
+id = "github-fine-grained"
+description = "Pinned credential format"
+regex = '\bgithub_pat_[A-Za-z0-9_]{40,}\b'
+
+[[rules]]
+id = "api-key"
+description = "Pinned credential format"
+regex = '\bsk-proj-[A-Za-z0-9_-]{32,}\b'
+
+[[rules]]
+id = "aws-access-id"
+description = "Pinned credential format"
+regex = '\bAKIA[A-Z0-9]{16}\b'

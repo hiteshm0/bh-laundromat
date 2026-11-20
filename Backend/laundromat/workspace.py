@@ -9,9 +9,22 @@ import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
-FIXTURE = ROOT / "demo"
-LAB = ROOT / ".laundromat"
+ASSETS = Path(__file__).resolve().parent / "assets"
+FIXTURE = ASSETS / "demo"
+# A marked editable checkout can still open its original Phase 1 receipts.
+CHECKOUT = Path(__file__).resolve().parents[2]
+EDITABLE = (CHECKOUT / "Backend/laundromat").resolve() == Path(__file__).resolve().parent
+DEFAULT_HOME = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")) / "laundromat"
+DATA = Path(os.environ.get("LAUNDROMAT_HOME", DEFAULT_HOME)).expanduser().resolve()
+ROOT = CHECKOUT if EDITABLE else DATA
+STATE = (
+    CHECKOUT
+    if EDITABLE
+    and not os.getenv("LAUNDROMAT_HOME")
+    and (CHECKOUT / ".laundromat/.phase1-workspace").is_file()
+    else DATA
+)
+LAB = STATE / ".laundromat"
 WORK = LAB / "workspace"
 RUNS = LAB / "runs"
 SEARCH = "search.js"
@@ -47,7 +60,8 @@ def directory(path: Path) -> Path:
 @contextmanager
 def workspace_lock():
     # A directory lock survives reset and serializes CLI writers without a lock file.
-    fd = os.open(ROOT, os.O_RDONLY)
+    STATE.mkdir(mode=0o700, parents=True, exist_ok=True)
+    fd = os.open(STATE, os.O_RDONLY)
     try:
         fcntl.flock(fd, fcntl.LOCK_EX)
         yield
@@ -70,7 +84,7 @@ def setup(reset: bool):
         if not reset:
             return
     # Keep the previous workspace intact until the replacement is ready.
-    with tempfile.TemporaryDirectory(dir=ROOT, prefix=".laundromat-setup-") as tmp:
+    with tempfile.TemporaryDirectory(dir=STATE, prefix=".laundromat-setup-") as tmp:
         staged = Path(tmp) / "lab"
         shutil.copytree(FIXTURE / "fixture", staged / WORK.name)
         (staged / RUNS.name).mkdir()

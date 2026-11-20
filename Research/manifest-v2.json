@@ -1,0 +1,1616 @@
+{
+  "cases": [
+    {
+      "allowed_test": "binding",
+      "category": "query",
+      "eligible": true,
+      "eligible_repair": "binding",
+      "files": {
+        "search.js": "function search(db, term) {\n  return db.prepare(`SELECT id FROM swatches WHERE color = '${term}' ORDER BY id`).all();\n}\n\nmodule.exports = { search };\n"
+      },
+      "group": "query/direct",
+      "id": "query-direct-1",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "query"
+      ],
+      "positive": true,
+      "rationale": "The existing query interpolates the ordinary term.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": "binding",
+      "category": "query",
+      "eligible": true,
+      "eligible_repair": "binding",
+      "files": {
+        "search.js": "// Search the synthetic swatch catalog.\nfunction search(db, term) {\n  return db.prepare(`SELECT id FROM swatches WHERE color = '${term}' ORDER BY id`).all();\n}\n\nmodule.exports = { search };\n"
+      },
+      "group": "query/direct",
+      "id": "query-direct-2",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "query"
+      ],
+      "positive": true,
+      "rationale": "The existing query interpolates the ordinary term.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "query",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "search.js": "const sql = \"SELECT id FROM swatches WHERE color = '\" + term + \"'\";\ndb.prepare(sql).all();\n"
+      },
+      "group": "query/composed",
+      "id": "query-composed-1",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "query"
+      ],
+      "positive": true,
+      "rationale": "A concatenated query lacks binding; the repair template does not cover it.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "query",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "search.js": "const sql = \"SELECT id FROM swatches WHERE color = '\" + color + \"'\";\ndb.prepare(sql).all();\n"
+      },
+      "group": "query/composed",
+      "id": "query-composed-2",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "query"
+      ],
+      "positive": true,
+      "rationale": "A concatenated query lacks binding; the repair template does not cover it.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "query",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "builder.js": "exports.build = value => \"SELECT id FROM swatches WHERE color = '\" + value + \"'\";\n",
+        "search.js": "const { build } = require(\"./builder\");\nmodule.exports = (db, term) => db.prepare(build(term)).all();\n"
+      },
+      "group": "query/cross-file",
+      "id": "query-cross-file-1",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "query"
+      ],
+      "positive": true,
+      "rationale": "SQL construction and statement execution occur in different modules.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "query",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "builder.js": "exports.build = value => \"SELECT id FROM swatches WHERE color = '\" + value + \"'\";\n",
+        "search.js": "const { build } = require(\"./builder\");\nmodule.exports = (db, q) => db.prepare(build(q)).all();\n"
+      },
+      "group": "query/cross-file",
+      "id": "query-cross-file-2",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "query"
+      ],
+      "positive": true,
+      "rationale": "SQL construction and statement execution occur in different modules.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "query",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "search.js": "function search(db, term) {\n  return db.prepare(\"SELECT id FROM swatches WHERE color = ? ORDER BY id\").all(term);\n}\n\nmodule.exports = { search };\n"
+      },
+      "group": "query/bound",
+      "id": "query-bound-1",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "The driver receives the search value separately.",
+      "review": "author labeled; independent review pending",
+      "split": "dev"
+    },
+    {
+      "allowed_test": null,
+      "category": "query",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "search.js": "\nfunction search(db, term) {\n  return db.prepare(\"SELECT id FROM swatches WHERE color = ? ORDER BY id\").all(term);\n}\n\nmodule.exports = { search };\n"
+      },
+      "group": "query/bound",
+      "id": "query-bound-2",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "The driver receives the search value separately.",
+      "review": "author labeled; independent review pending",
+      "split": "dev"
+    },
+    {
+      "allowed_test": null,
+      "category": "query",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "search.js": "//   return db.prepare(`SELECT id FROM swatches WHERE color = '${term}' ORDER BY id`).all();\nfunction search(db, term) {\n  return db.prepare(\"SELECT id FROM swatches WHERE color = ? ORDER BY id\").all(term);\n}\n\nmodule.exports = { search };\n"
+      },
+      "group": "query/comment",
+      "id": "query-comment-1",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "A comment mentions interpolation without executing a query.",
+      "review": "author labeled; independent review pending",
+      "split": "dev"
+    },
+    {
+      "allowed_test": null,
+      "category": "query",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "search.js": "//   return db.prepare(`SELECT id FROM swatches WHERE color = '${term}' ORDER BY id`).all();\n\nfunction search(db, term) {\n  return db.prepare(\"SELECT id FROM swatches WHERE color = ? ORDER BY id\").all(term);\n}\n\nmodule.exports = { search };\n"
+      },
+      "group": "query/comment",
+      "id": "query-comment-2",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "A comment mentions interpolation without executing a query.",
+      "review": "author labeled; independent review pending",
+      "split": "dev"
+    },
+    {
+      "allowed_test": null,
+      "category": "query",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "search.js": "function search(db, term) {\n  return db.prepare(\"SELECT id FROM swatches WHERE color = ? ORDER BY id DESC\").all(term);\n}\n\nmodule.exports = { search };\n"
+      },
+      "group": "query/business",
+      "id": "query-business-1",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "Wrong ordering is a business-rule defect outside the parameter-binding label.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "query",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "search.js": "function search(db, term) {\n  return db.prepare(\"SELECT id FROM swatches WHERE color = ? ORDER BY color\").all(term);\n}\n\nmodule.exports = { search };\n"
+      },
+      "group": "query/business",
+      "id": "query-business-2",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "Wrong ordering is a business-rule defect outside the parameter-binding label.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "secret",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "settings.txt": "token={{TEST_TOKEN_0}}\n"
+      },
+      "group": "secret/literal",
+      "id": "secret-literal-1",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "secret"
+      ],
+      "positive": true,
+      "rationale": "The file contains the pinned synthetic credential format.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "secret",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "settings.txt": "token={{TEST_TOKEN_1}}\n"
+      },
+      "group": "secret/literal",
+      "id": "secret-literal-2",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "secret"
+      ],
+      "positive": true,
+      "rationale": "The file contains the pinned synthetic credential format.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "secret",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "settings.txt": "record={{ENCODED_0}}\n"
+      },
+      "group": "secret/encoded",
+      "id": "secret-encoded-1",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "secret"
+      ],
+      "positive": true,
+      "rationale": "The synthetic credential is encoded; the pinned detector examines literal text.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "secret",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "settings.txt": "record={{ENCODED_1}}\n"
+      },
+      "group": "secret/encoded",
+      "id": "secret-encoded-2",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "secret"
+      ],
+      "positive": true,
+      "rationale": "The synthetic credential is encoded; the pinned detector examines literal text.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "secret",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "settings.txt": "token=null\n"
+      },
+      "group": "secret/empty",
+      "id": "secret-empty-1",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "An empty assignment has no credential.",
+      "review": "author labeled; independent review pending",
+      "split": "dev"
+    },
+    {
+      "allowed_test": null,
+      "category": "secret",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "settings.txt": "token=\"\"\n"
+      },
+      "group": "secret/empty",
+      "id": "secret-empty-2",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "An empty assignment has no credential.",
+      "review": "author labeled; independent review pending",
+      "split": "dev"
+    },
+    {
+      "allowed_test": null,
+      "category": "secret",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "settings.txt": "token=process.env.DEMO_KEY\n"
+      },
+      "group": "secret/reference",
+      "id": "secret-reference-1",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "An environment variable name contains no value.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "secret",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "settings.txt": "token=process.env.TEST_KEY\n"
+      },
+      "group": "secret/reference",
+      "id": "secret-reference-2",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "An environment variable name contains no value.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "secret",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "settings.txt": "token=LMTEST_sample\n"
+      },
+      "group": "secret/short",
+      "id": "secret-short-1",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "A short placeholder does not satisfy the pinned credential format.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "secret",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "settings.txt": "token=LMTEST_example\n"
+      },
+      "group": "secret/short",
+      "id": "secret-short-2",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "A short placeholder does not satisfy the pinned credential format.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "secret",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "settings.txt": "{\"key\":\"{{TEST_TOKEN_0}}\"}\n"
+      },
+      "group": "secret/quoted",
+      "id": "secret-quoted-1",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "secret"
+      ],
+      "positive": true,
+      "rationale": "The synthetic value occurs inside a configuration string.",
+      "review": "author labeled; independent review pending",
+      "split": "dev"
+    },
+    {
+      "allowed_test": null,
+      "category": "secret",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "settings.txt": "{\"key\":\"{{TEST_TOKEN_1}}\"}\n"
+      },
+      "group": "secret/quoted",
+      "id": "secret-quoted-2",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "secret"
+      ],
+      "positive": true,
+      "rationale": "The synthetic value occurs inside a configuration string.",
+      "review": "author labeled; independent review pending",
+      "split": "dev"
+    },
+    {
+      "allowed_test": null,
+      "category": "guard",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "routes.js": "router.get(\"/orders\", list);\n"
+      },
+      "group": "guard/missing",
+      "id": "guard-missing-1",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "guard"
+      ],
+      "positive": true,
+      "rationale": "A protected GET route omits requireUser.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "guard",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "routes.js": "router.get(\"/orders/:id\", list);\n"
+      },
+      "group": "guard/missing",
+      "id": "guard-missing-2",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "guard"
+      ],
+      "positive": true,
+      "rationale": "A protected GET route omits requireUser.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "guard",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "routes.js": "router.get(\"/orders\", audit, list);\n"
+      },
+      "group": "guard/wrong",
+      "id": "guard-wrong-1",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "guard"
+      ],
+      "positive": true,
+      "rationale": "A logging middleware does not satisfy the guard requirement.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "guard",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "routes.js": "router.get(\"/orders/:id\", audit, list);\n"
+      },
+      "group": "guard/wrong",
+      "id": "guard-wrong-2",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "guard"
+      ],
+      "positive": true,
+      "rationale": "A logging middleware does not satisfy the guard requirement.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "guard",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "routes.js": "router.get(\"/orders\", requireUser, list);\n"
+      },
+      "group": "guard/protected",
+      "id": "guard-protected-1",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "The expected guard precedes the handler.",
+      "review": "author labeled; independent review pending",
+      "split": "dev"
+    },
+    {
+      "allowed_test": null,
+      "category": "guard",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "routes.js": "router.get(\"/orders/:id\", requireUser, list);\n"
+      },
+      "group": "guard/protected",
+      "id": "guard-protected-2",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "The expected guard precedes the handler.",
+      "review": "author labeled; independent review pending",
+      "split": "dev"
+    },
+    {
+      "allowed_test": null,
+      "category": "guard",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "routes.js": "router.get(\"/health\", show);\n"
+      },
+      "group": "guard/public",
+      "id": "guard-public-1",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "The policy explicitly declares this route public.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "guard",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "routes.js": "router.get(\"/about\", show);\n"
+      },
+      "group": "guard/public",
+      "id": "guard-public-2",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "The policy explicitly declares this route public.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "guard",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "routes.js": "router.get(\"/orders\", audit, requireUser, list);\n"
+      },
+      "group": "guard/decorated",
+      "id": "guard-decorated-1",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "The guarded route also has logging middleware.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "guard",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "routes.js": "router.get(\"/orders/:id\", audit, requireUser, list);\n"
+      },
+      "group": "guard/decorated",
+      "id": "guard-decorated-2",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "The guarded route also has logging middleware.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "guard",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "routes.js": "router.get(\n  \"/orders\",\n  list\n);\n"
+      },
+      "group": "guard/multiline",
+      "id": "guard-multiline-1",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "guard"
+      ],
+      "positive": true,
+      "rationale": "A multiline declaration still needs its configured guard.",
+      "review": "author labeled; independent review pending",
+      "split": "dev"
+    },
+    {
+      "allowed_test": null,
+      "category": "guard",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "routes.js": "router.get(\n  \"/orders/:id\",\n  list\n);\n"
+      },
+      "group": "guard/multiline",
+      "id": "guard-multiline-2",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "guard"
+      ],
+      "positive": true,
+      "rationale": "A multiline declaration still needs its configured guard.",
+      "review": "author labeled; independent review pending",
+      "split": "dev"
+    },
+    {
+      "allowed_test": null,
+      "category": "dependency",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "package-lock.json": "{\"lockfileVersion\":3,\"packages\":{\"node_modules/lodash\":{\"version\":\"4.17.18\"}}}"
+      },
+      "group": "dependency/range",
+      "id": "dependency-range-1",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "dependency"
+      ],
+      "positive": true,
+      "rationale": "Exact npm version is inside the pinned affected range.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "dependency",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "package-lock.json": "{\"lockfileVersion\":3,\"packages\":{\"node_modules/lodash\":{\"version\":\"4.17.16\"}}}"
+      },
+      "group": "dependency/range",
+      "id": "dependency-range-2",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "dependency"
+      ],
+      "positive": true,
+      "rationale": "Exact npm version is inside the pinned affected range.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "dependency",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "package-lock.json": "{\"lockfileVersion\":3,\"packages\":{\"node_modules/lodash\":{\"version\":\"3.7.0\"}}}"
+      },
+      "group": "dependency/boundary",
+      "id": "dependency-boundary-1",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "dependency"
+      ],
+      "positive": true,
+      "rationale": "Exact npm version is at or above the introduction boundary.",
+      "review": "author labeled; independent review pending",
+      "split": "dev"
+    },
+    {
+      "allowed_test": null,
+      "category": "dependency",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "package-lock.json": "{\"lockfileVersion\":3,\"packages\":{\"node_modules/lodash\":{\"version\":\"3.7.1\"}}}"
+      },
+      "group": "dependency/boundary",
+      "id": "dependency-boundary-2",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "dependency"
+      ],
+      "positive": true,
+      "rationale": "Exact npm version is at or above the introduction boundary.",
+      "review": "author labeled; independent review pending",
+      "split": "dev"
+    },
+    {
+      "allowed_test": null,
+      "category": "dependency",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "package-lock.json": "{\"lockfileVersion\":3,\"packages\":{\"node_modules/lodash\":{\"version\":\"4.17.19\"}}}"
+      },
+      "group": "dependency/fixed",
+      "id": "dependency-fixed-1",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "Exact npm version meets the pinned fix.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "dependency",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "package-lock.json": "{\"lockfileVersion\":3,\"packages\":{\"node_modules/lodash\":{\"version\":\"4.17.21\"}}}"
+      },
+      "group": "dependency/fixed",
+      "id": "dependency-fixed-2",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "Exact npm version meets the pinned fix.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "dependency",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "package-lock.json": "{\"lockfileVersion\":3,\"packages\":{\"node_modules/lodash\":{\"version\":\"3.6.0\"}}}"
+      },
+      "group": "dependency/older",
+      "id": "dependency-older-1",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "Exact npm version predates introduction.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "dependency",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "package-lock.json": "{\"lockfileVersion\":3,\"packages\":{\"node_modules/lodash\":{\"version\":\"2.4.2\"}}}"
+      },
+      "group": "dependency/older",
+      "id": "dependency-older-2",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "Exact npm version predates introduction.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "dependency",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "package-lock.json": "{\"lockfileVersion\":3,\"packages\":{\"node_modules/sample-lodash\":{\"version\":\"4.17.18\"}}}"
+      },
+      "group": "dependency/namesake",
+      "id": "dependency-namesake-1",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "A distinct npm package has no match in the pinned data.",
+      "review": "author labeled; independent review pending",
+      "split": "dev"
+    },
+    {
+      "allowed_test": null,
+      "category": "dependency",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "package-lock.json": "{\"lockfileVersion\":3,\"packages\":{\"node_modules/sample-lodash\":{\"version\":\"4.17.16\"}}}"
+      },
+      "group": "dependency/namesake",
+      "id": "dependency-namesake-2",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "A distinct npm package has no match in the pinned data.",
+      "review": "author labeled; independent review pending",
+      "split": "dev"
+    },
+    {
+      "allowed_test": null,
+      "category": "dependency",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "package-lock.json": "{\"lockfileVersion\":3,\"packages\":{\"node_modules/sample-native\":{\"version\":\"1.1.0\"}}}",
+        "recorded-package.json": "{\"name\":\"sample-native\",\"previous\":{\"version\":\"1.0.0\",\"scripts\":{}},\"current\":{\"version\":\"1.1.0\",\"scripts\":{\"install\":\"node build-native.js\"}},\"parentSource\":\"require(\\\"sample-native\\\")\"}"
+      },
+      "group": "dependency/build-script",
+      "id": "dependency-build-script-1",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "Recorded installation builds a native module; the pinned advisory does not match.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "dependency",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "package-lock.json": "{\"lockfileVersion\":3,\"packages\":{\"node_modules/sample-native\":{\"version\":\"1.2.0\"}}}",
+        "recorded-package.json": "{\"name\":\"sample-native\",\"previous\":{\"version\":\"1.0.0\",\"scripts\":{}},\"current\":{\"version\":\"1.2.0\",\"scripts\":{\"install\":\"node build-native.js\"}},\"parentSource\":\"require(\\\"sample-native\\\")\"}"
+      },
+      "group": "dependency/build-script",
+      "id": "dependency-build-script-2",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "Recorded installation builds a native module; the pinned advisory does not match.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": "configuration",
+      "before_files": {},
+      "category": "secret",
+      "eligible": true,
+      "eligible_repair": "configuration",
+      "files": {
+        "config.js": "exports.key = () => '{{CONFIG_VALUE}}';\n"
+      },
+      "group": "v2/configuration",
+      "id": "v2-secret-0",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "secret"
+      ],
+      "positive": true,
+      "rationale": "configuration before in the frozen ordinary-input fixture.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": "configuration",
+      "before_files": {},
+      "category": "secret",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "config.js": "exports.key = () => process.env.CATALOG_KEY;\n"
+      },
+      "group": "v2/configuration",
+      "id": "v2-secret-1",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "configuration after in the frozen ordinary-input fixture.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": "argv",
+      "before_files": {},
+      "category": "command",
+      "eligible": true,
+      "eligible_repair": "argv",
+      "files": {
+        "command.js": "exports.run = (run, label) => run('catalog ' + label);\n"
+      },
+      "group": "v2/argv",
+      "id": "v2-injection-2",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "command"
+      ],
+      "positive": true,
+      "rationale": "argv before in the frozen ordinary-input fixture.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": "argv",
+      "before_files": {},
+      "category": "command",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "command.js": "exports.run = (run, label) => run('catalog', [label]);\n"
+      },
+      "group": "v2/argv",
+      "id": "v2-injection-3",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "argv after in the frozen ordinary-input fixture.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": "roles",
+      "before_files": {},
+      "category": "prompt",
+      "eligible": true,
+      "eligible_repair": "roles",
+      "files": {
+        "prompt.js": "exports.messages = text => [{role: 'system', content: 'Summarize ' + text}];\n"
+      },
+      "group": "v2/roles",
+      "id": "v2-injection-4",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "prompt"
+      ],
+      "positive": true,
+      "rationale": "roles before in the frozen ordinary-input fixture.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": "roles",
+      "before_files": {},
+      "category": "prompt",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "prompt.js": "exports.messages = text => [{role: 'system', content: 'Summarize'}, {role: 'user', content: text}];\n"
+      },
+      "group": "v2/roles",
+      "id": "v2-injection-5",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "roles after in the frozen ordinary-input fixture.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": "access",
+      "before_files": {},
+      "category": "guard",
+      "eligible": true,
+      "eligible_repair": "access",
+      "files": {
+        "routes.js": "router.post(\"/orders\", saveOrder);\n"
+      },
+      "group": "v2/access",
+      "id": "v2-guard-0",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "guard"
+      ],
+      "positive": true,
+      "rationale": "access before in the frozen ordinary-input fixture.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": "access",
+      "before_files": {},
+      "category": "guard",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "routes.js": "router.post(\"/orders\", requireUser, saveOrder);\n"
+      },
+      "group": "v2/access",
+      "id": "v2-guard-1",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "access after in the frozen ordinary-input fixture.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "before_files": {},
+      "category": "guard",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "routes.js": "router.get(\"/orders\", listOrders);\nrouter.get(\"/orders/:id\", requireUser, showOrder);\nrouter.get(\"/health\", showHealth);\n"
+      },
+      "group": "v2/guard-controls",
+      "id": "v2-guard-2",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "guard"
+      ],
+      "positive": true,
+      "rationale": "recorded routes in the frozen ordinary-input fixture.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "before_files": {},
+      "category": "guard",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "routes.js": "router.get(\"/unlisted\", show);\n"
+      },
+      "group": "v2/guard-controls",
+      "id": "v2-guard-3",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "unknown route in the frozen ordinary-input fixture.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": "advisory",
+      "before_files": {},
+      "category": "dependency",
+      "eligible": true,
+      "eligible_repair": "advisory",
+      "files": {
+        "package-lock.json": "{\"lockfileVersion\":3,\"packages\":{\"node_modules/lodash\":{\"version\":\"4.17.18\"}}}\n"
+      },
+      "group": "v2/advisory",
+      "id": "v2-dependency-0",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "dependency"
+      ],
+      "positive": true,
+      "rationale": "advisory before in the frozen ordinary-input fixture.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": "advisory",
+      "before_files": {},
+      "category": "dependency",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "package-lock.json": "{\"lockfileVersion\":3,\"packages\":{\"node_modules/lodash\":{\"version\":\"4.17.19\"}}}\n"
+      },
+      "group": "v2/advisory",
+      "id": "v2-dependency-1",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "advisory after in the frozen ordinary-input fixture.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "before_files": {},
+      "category": "dependency",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "package-lock.json": "{\n  \"name\": \"recorded-catalog\",\n  \"lockfileVersion\": 3,\n  \"packages\": {\n    \"node_modules/lodash\": {\n      \"version\": \"4.17.18\"\n    },\n    \"node_modules/another/node_modules/lodash\": {\n      \"version\": \"4.17.19\"\n    },\n    \"node_modules/sample-native\": {\n      \"version\": \"1.1.0\"\n    }\n  }\n}\n"
+      },
+      "group": "v2/dependency-controls",
+      "id": "v2-dependency-2",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "dependency"
+      ],
+      "positive": true,
+      "rationale": "recorded advisory in the frozen ordinary-input fixture.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "before_files": {
+        "package.json": "{\n  \"name\": \"laundromat-example\",\n  \"private\": true,\n  \"dependencies\": {}\n}\n"
+      },
+      "category": "supply-chain",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "package.json": "{\n  \"name\": \"laundromat-example\",\n  \"private\": true,\n  \"dependencies\": {\n    \"phantom-dep\": \"file:./phantom-dep\"\n  }\n}\n",
+        "phantom-dep/package.json": "{\n  \"name\": \"phantom-dep\",\n  \"version\": \"1.0.0\",\n  \"private\": true,\n  \"scripts\": { \"postinstall\": \"node --version\" }\n}\n",
+        "src/app.mjs": "export function title() {\n  return \"Synthetic catalog\";\n}\n"
+      },
+      "group": "v2/supply-chain-controls",
+      "id": "v2-supply-chain-0",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "supply-chain"
+      ],
+      "positive": true,
+      "rationale": "new unused install declaration in the frozen ordinary-input fixture.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "before_files": {
+        "package.json": "{\n  \"name\": \"laundromat-example\",\n  \"private\": true,\n  \"dependencies\": {}\n}\n"
+      },
+      "category": "supply-chain",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "package.json": "{\n  \"name\": \"laundromat-example\",\n  \"private\": true,\n  \"dependencies\": {\n    \"phantom-dep\": \"file:./phantom-dep\"\n  }\n}\n",
+        "phantom-dep/package.json": "{\n  \"name\": \"phantom-dep\",\n  \"version\": \"1.0.0\",\n  \"private\": true,\n  \"scripts\": { \"postinstall\": \"node --version\" }\n}\n",
+        "src/app.mjs": "import \"phantom-dep/catalog\";"
+      },
+      "group": "v2/supply-chain-controls",
+      "id": "v2-supply-chain-1",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "imported subpath in the frozen ordinary-input fixture.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "before_files": {
+        "package.json": "{\n  \"name\": \"laundromat-example\",\n  \"private\": true,\n  \"dependencies\": {}\n}\n"
+      },
+      "category": "supply-chain",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "package.json": "{\n  \"name\": \"laundromat-example\",\n  \"private\": true,\n  \"dependencies\": {\n    \"phantom-dep\": \"file:./phantom-dep\"\n  }\n}\n",
+        "phantom-dep/package.json": "{\n  \"name\": \"phantom-dep\",\n  \"version\": \"1.0.0\",\n  \"private\": true,\n  \"scripts\": { \"postinstall\": \"node --version\" }\n}\n",
+        "src/app.mjs": "export function load(name){return import(name)}"
+      },
+      "group": "v2/supply-chain-controls",
+      "id": "v2-supply-chain-2",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "dynamic unknown in the frozen ordinary-input fixture.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "before_files": {
+        "package.json": "{\n  \"name\": \"laundromat-example\",\n  \"private\": true,\n  \"dependencies\": {}\n}\n"
+      },
+      "category": "supply-chain",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "package.json": "{\n  \"dependencies\": {\n    \"phantom-dep\": \"file:./phantom-dep\"\n  },\n  \"name\": \"laundromat-example\",\n  \"private\": true,\n  \"scripts\": {\n    \"build\": \"catalog-build\"\n  }\n}\n",
+        "phantom-dep/package.json": "{\n  \"bin\": {\n    \"catalog-build\": \"bin.js\"\n  },\n  \"name\": \"phantom-dep\",\n  \"private\": true,\n  \"scripts\": {\n    \"postinstall\": \"node --version\"\n  },\n  \"version\": \"1.0.0\"\n}\n",
+        "src/app.mjs": "export function title() {\n  return \"Synthetic catalog\";\n}\n"
+      },
+      "group": "v2/supply-chain-controls",
+      "id": "v2-supply-chain-3",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "documented build command in the frozen ordinary-input fixture.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "before_files": {
+        "package.json": "{\n  \"name\": \"laundromat-example\",\n  \"private\": true,\n  \"dependencies\": {}\n}\n"
+      },
+      "category": "supply-chain",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "package.json": "{\n  \"name\": \"laundromat-example\",\n  \"private\": true,\n  \"dependencies\": {\n    \"phantom-dep\": \"file:./phantom-dep\"\n  }\n}\n",
+        "phantom-dep/package.json": "{\n  \"name\": \"phantom-dep\",\n  \"version\": \"1.0.0\"\n}\n",
+        "src/app.mjs": "export function title() {\n  return \"Synthetic catalog\";\n}\n"
+      },
+      "group": "v2/supply-chain-controls",
+      "id": "v2-supply-chain-4",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "hook-free addition in the frozen ordinary-input fixture.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "before_files": {
+        "package.json": "{\n  \"name\": \"laundromat-example\",\n  \"private\": true,\n  \"dependencies\": {\n    \"phantom-dep\": \"file:./phantom-dep\"\n  }\n}\n",
+        "phantom-dep/package.json": "{\n  \"name\": \"phantom-dep\",\n  \"version\": \"1.0.0\",\n  \"private\": true,\n  \"scripts\": { \"postinstall\": \"node --version\" }\n}\n",
+        "src/app.mjs": "export function title() {\n  return \"Synthetic catalog\";\n}\n"
+      },
+      "category": "supply-chain",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "package.json": "{\n  \"name\": \"laundromat-example\",\n  \"private\": true,\n  \"dependencies\": {\n    \"phantom-dep\": \"file:./phantom-dep\"\n  }\n}\n",
+        "phantom-dep/package.json": "{\n  \"name\": \"phantom-dep\",\n  \"version\": \"1.0.0\",\n  \"private\": true,\n  \"scripts\": { \"postinstall\": \"node --version\" }\n}\n",
+        "src/app.mjs": "export function title() {\n  return \"Synthetic catalog\";\n}\n"
+      },
+      "group": "v2/supply-chain-controls",
+      "id": "v2-supply-chain-5",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "unchanged dependency in the frozen ordinary-input fixture.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "before_files": {
+        "package.json": "{\n  \"name\": \"laundromat-example\",\n  \"private\": true,\n  \"dependencies\": {}\n}\n"
+      },
+      "category": "supply-chain",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "package.json": "{\n  \"name\": \"laundromat-example\",\n  \"private\": true,\n  \"dependencies\": {\n    \"phantom-dep\": \"file:./phantom-dep\"\n  }\n}\n",
+        "src/app.mjs": "export function title() {\n  return \"Synthetic catalog\";\n}\n"
+      },
+      "group": "v2/supply-chain-controls",
+      "id": "v2-supply-chain-6",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "missing metadata in the frozen ordinary-input fixture.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "before_files": {
+        "package.json": "{\n  \"name\": \"laundromat-example\",\n  \"private\": true,\n  \"dependencies\": {}\n}\n"
+      },
+      "category": "slopsquatting",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "offline-package/package.json": "{\n  \"name\": \"expres\",\n  \"version\": \"1.0.0\"\n}\n",
+        "package.json": "{\n  \"dependencies\": {\n    \"expres\": \"file:./offline-package\"\n  }\n}\n"
+      },
+      "group": "v2/slopsquatting-controls",
+      "id": "v2-slopsquatting-0",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "slopsquatting"
+      ],
+      "positive": true,
+      "rationale": "expres in the frozen ordinary-input fixture.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "before_files": {
+        "package.json": "{\n  \"name\": \"laundromat-example\",\n  \"private\": true,\n  \"dependencies\": {}\n}\n"
+      },
+      "category": "slopsquatting",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "offline-package/package.json": "{\n  \"name\": \"experss\",\n  \"version\": \"1.0.0\"\n}\n",
+        "package.json": "{\n  \"dependencies\": {\n    \"experss\": \"file:./offline-package\"\n  }\n}\n"
+      },
+      "group": "v2/slopsquatting-controls",
+      "id": "v2-slopsquatting-1",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "slopsquatting"
+      ],
+      "positive": true,
+      "rationale": "experss in the frozen ordinary-input fixture.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "before_files": {
+        "package.json": "{\n  \"name\": \"laundromat-example\",\n  \"private\": true,\n  \"dependencies\": {}\n}\n"
+      },
+      "category": "slopsquatting",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "offline-package/package.json": "{\n  \"name\": \"react\",\n  \"version\": \"1.0.0\"\n}\n",
+        "package.json": "{\n  \"dependencies\": {\n    \"react\": \"file:./offline-package\"\n  }\n}\n"
+      },
+      "group": "v2/slopsquatting-controls",
+      "id": "v2-slopsquatting-2",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "react in the frozen ordinary-input fixture.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "before_files": {
+        "package.json": "{\n  \"name\": \"laundromat-example\",\n  \"private\": true,\n  \"dependencies\": {}\n}\n"
+      },
+      "category": "slopsquatting",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "offline-package/package.json": "{\n  \"name\": \"@types/raect\",\n  \"version\": \"1.0.0\"\n}\n",
+        "package.json": "{\n  \"dependencies\": {\n    \"@types/raect\": \"file:./offline-package\"\n  }\n}\n"
+      },
+      "group": "v2/slopsquatting-controls",
+      "id": "v2-slopsquatting-3",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "slopsquatting"
+      ],
+      "positive": true,
+      "rationale": "@types/raect in the frozen ordinary-input fixture.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "before_files": {
+        "package.json": "{\n  \"name\": \"laundromat-example\",\n  \"private\": true,\n  \"dependencies\": {}\n}\n"
+      },
+      "category": "slopsquatting",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "offline-package/package.json": "{\n  \"name\": \"og\",\n  \"version\": \"1.0.0\"\n}\n",
+        "package.json": "{\n  \"dependencies\": {\n    \"og\": \"file:./offline-package\"\n  }\n}\n"
+      },
+      "group": "v2/slopsquatting-controls",
+      "id": "v2-slopsquatting-4",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "slopsquatting"
+      ],
+      "positive": true,
+      "rationale": "og in the frozen ordinary-input fixture.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "before_files": {
+        "package.json": "{\n  \"name\": \"laundromat-example\",\n  \"private\": true,\n  \"dependencies\": {}\n}\n"
+      },
+      "category": "slopsquatting",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "offline-package/package.json": "{\n  \"name\": \"lodahs\",\n  \"version\": \"1.0.0\"\n}\n",
+        "package.json": "{\n  \"dependencies\": {\n    \"lodahs\": \"file:./offline-package\"\n  }\n}\n"
+      },
+      "group": "v2/slopsquatting-controls",
+      "id": "v2-slopsquatting-5",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "slopsquatting"
+      ],
+      "positive": true,
+      "rationale": "lodahs in the frozen ordinary-input fixture.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "before_files": {
+        "package.json": "{\n  \"name\": \"laundromat-example\",\n  \"private\": true,\n  \"dependencies\": {}\n}\n"
+      },
+      "category": "slopsquatting",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "offline-package/package.json": "{\n  \"name\": \"typescritp\",\n  \"version\": \"1.0.0\"\n}\n",
+        "package.json": "{\n  \"dependencies\": {\n    \"typescritp\": \"file:./offline-package\"\n  }\n}\n"
+      },
+      "group": "v2/slopsquatting-controls",
+      "id": "v2-slopsquatting-6",
+      "independent_review": null,
+      "label": "positive",
+      "labels": [
+        "slopsquatting"
+      ],
+      "positive": true,
+      "rationale": "typescritp in the frozen ordinary-input fixture.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "before_files": {
+        "package.json": "{\n  \"name\": \"laundromat-example\",\n  \"private\": true,\n  \"dependencies\": {}\n}\n"
+      },
+      "category": "slopsquatting",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "offline-package/package.json": "{\n  \"name\": \"unrelated-catalog\",\n  \"version\": \"1.0.0\"\n}\n",
+        "package.json": "{\n  \"dependencies\": {\n    \"unrelated-catalog\": \"file:./offline-package\"\n  }\n}\n"
+      },
+      "group": "v2/slopsquatting-controls",
+      "id": "v2-slopsquatting-7",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "unrelated-catalog in the frozen ordinary-input fixture.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "guard",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "routes.js": "router.get(\"/orders\", listOrders);\n",
+        "settings.txt": "token={{TEST_TOKEN_0}}\n"
+      },
+      "group": "mixed/routes-and-settings",
+      "id": "mixed-train",
+      "independent_review": null,
+      "label": "mixed",
+      "labels": [
+        "secret",
+        "guard"
+      ],
+      "positive": true,
+      "rationale": "Protected route omits declared middleware and settings contain a literal inert token.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "guard",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "routes.js": "router.get(\"/orders\", listOrders);\n",
+        "settings.txt": "token={{TEST_TOKEN_0}}\n\n"
+      },
+      "group": "mixed/routes-and-settings",
+      "id": "mixed-development",
+      "independent_review": null,
+      "label": "mixed",
+      "labels": [
+        "secret",
+        "guard"
+      ],
+      "positive": true,
+      "rationale": "Protected route omits declared middleware and settings contain a literal inert token.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "guard",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "routes.js": "router.get(\"/orders\", listOrders);\n",
+        "settings.txt": "token={{TEST_TOKEN_0}}\n\n\n"
+      },
+      "group": "mixed/routes-and-settings",
+      "id": "mixed-held-out",
+      "independent_review": null,
+      "label": "mixed",
+      "labels": [
+        "secret",
+        "guard"
+      ],
+      "positive": true,
+      "rationale": "Protected route omits declared middleware and settings contain a literal inert token.",
+      "review": "author labeled; independent review pending",
+      "split": "held-out"
+    },
+    {
+      "allowed_test": null,
+      "category": "guard",
+      "eligible": false,
+      "eligible_repair": null,
+      "files": {
+        "routes.js": "router.get(\"/health\", health);\n"
+      },
+      "group": "train/public-status",
+      "id": "train-public-route",
+      "independent_review": null,
+      "label": "negative",
+      "labels": [],
+      "positive": false,
+      "rationale": "Public health route in the declared policy.",
+      "review": "author labeled",
+      "split": "train"
+    }
+  ],
+  "parent_digest": "97759b6030ec988143808a78a5d93e56078ff63386ea9bee02cf0923250b6ff3",
+  "unit": "one change with a set of labeled classes",
+  "version": 2
+}

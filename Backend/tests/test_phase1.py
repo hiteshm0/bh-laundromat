@@ -19,7 +19,7 @@ class PhaseOne(unittest.TestCase):
         self.root = Path(tmp.name).resolve()
         for relative in ("demo", "Backend/laundromat", "Backend/rules"):
             shutil.copytree(REPO / relative, self.root / relative)
-        self.env = {**os.environ, "PYTHONPATH": str(self.root / "Backend")}
+        self.env = {**os.environ, "PYTHONPATH": str(self.root / "Backend"), "LAUNDROMAT_HOME":str(self.root)}
         self.cli = shutil.which("laundromat")
         self.assertIsNotNone(self.cli, "Activate the editable install first.")
         self.invoke("setup")
@@ -111,7 +111,7 @@ class PhaseOne(unittest.TestCase):
         self.assertIn("verified repair", self.invoke("apply", receipt["receipt"], code=2))
 
     def test_incorrect_expected_ids_block_verification(self):
-        cases = self.root / "demo/cases.json"
+        cases = self.root / "Backend/laundromat/assets/demo/cases.json"
         data = json.loads(cases.read_bytes())
         data[0]["ids"].reverse()
         cases.write_text(json.dumps(data))

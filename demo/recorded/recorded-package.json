@@ -1,0 +1,15 @@
+{
+  "name": "sample-native",
+  "previous": {
+    "version": "1.0.0",
+    "scripts": {}
+  },
+  "current": {
+    "version": "1.1.0",
+    "scripts": {
+      "install": "node build-native.js"
+    }
+  },
+  "parentSource": "const native = require(\"sample-native\");",
+  "provenance": "Synthetic recorded metadata for a legitimate native build."
+}
