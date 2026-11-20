@@ -1,5 +1,7 @@
+.env.example
 Backend/laundromat/__init__.py
 Backend/laundromat/api.py
+Backend/laundromat/assets/inventory/probe.cjs
 Backend/laundromat/capture.py
 Backend/laundromat/checks.py
 Backend/laundromat/cli.py
@@ -9,6 +11,7 @@ Backend/laundromat/experiment.py
 Backend/laundromat/gate.py
 Backend/laundromat/history.py
 Backend/laundromat/install_scanner.py
+Backend/laundromat/inventory.py
 Backend/laundromat/legacy.py
 Backend/laundromat/manifests.py
 Backend/laundromat/owned.py
@@ -16,6 +19,8 @@ Backend/laundromat/pipeline.py
 Backend/laundromat/proposal.py
 Backend/laundromat/provider.py
 Backend/laundromat/public.py
+Backend/laundromat/push_graph.py
+Backend/laundromat/push_stage.py
 Backend/laundromat/repair.py
 Backend/laundromat/review.py
 Backend/laundromat/sandbox.py
@@ -30,12 +35,15 @@ Backend/rules/interpolated-search.yml
 Backend/rules/names-v1.json
 Backend/rules/npm-metadata-v1.json
 Backend/rules/policy.json
+Backend/rules/push.rego
 Backend/rules/synthetic.toml
 Backend/setup.py
+Backend/tests/push_fixtures/sitecustomize.py
 Backend/tests/test_evaluation.py
 Backend/tests/test_experiment_v2.py
 Backend/tests/test_final.py
 Backend/tests/test_phase1.py
+Backend/tests/test_push_graph.py
 Backend/tests/test_review_v2.py
 Backend/tests/test_sandbox_v2.py
 Docs/final-review.md
@@ -81,9 +89,12 @@ demo/supply-chain/phantom-dep/package.json
 demo/supply-chain/proposal.diff
 demo/supply-chain/src/app.mjs
 demo/verifier.Dockerfile
+examples/warehouse/inventory/stock.cjs
+examples/warehouse/inventory/stock.test.cjs
 release-source.txt
 scripts/check_dashboard.mjs
 scripts/check_dashboard.py
 scripts/final_demo.py
 scripts/install_gitleaks.py
+scripts/push_demo.py
 scripts/test_release.py

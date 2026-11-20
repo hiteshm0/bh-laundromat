@@ -45,7 +45,35 @@ type Repair = {
   model_issue?: string;
   model_explanation?: string;
 };
+type PushEvidence = {
+  finding_id: string;
+  state: string;
+  reason?: string;
+  change?: string;
+  introducing_commit?: string;
+  introducing_diff?: string;
+  policy_route?: string;
+  detect?: { reasoning: string; property: string; route: string };
+  role_calls: { role: string; model?: string; outcome?: string }[];
+  test?: Fields;
+  test_sha256?: string;
+  before?: { status: string };
+  after?: { status: string };
+  regression?: { status: string };
+  rescan?: Fields;
+  property?: string;
+  rationale?: string;
+  patch?: string;
+  staged_diff?: string;
+  working_tree_issue?: string;
+  committed_oid?: string;
+};
 type Detail = Summary & {
+  mode?: string;
+  updates?: {local: string; tip: string; remote: string; base: string}[];
+  push_reviews?: PushEvidence[];
+  staging_issue?: string;
+  proposal_ready?: boolean;
   scope: string[] | null;
   recovery?: string;
   next_stage?: string;
@@ -345,6 +373,9 @@ function App() {
                 <section>
                   <h2>Snapshot</h2>
                   <code>{detail.snapshot.sha256}</code>
+                  {detail.mode && <p>Repository mode · <strong>{detail.mode}</strong></p>}
+                  {detail.updates?.map(u => <p key={u.remote}>{u.local} → {u.remote}<br />
+                    Reviewed commit · <code>{u.tip}</code></p>)}
                   <p>
                     {detail.scope == null ? "Determining changed files" : detail.scope.length + " scoped paths or commits"} ·{" "}
                     {detail.elapsed_ms ?? "—"} ms
@@ -388,6 +419,7 @@ function App() {
                   {detail.findings.map((f, i) => {
                     const timeline=(detail.transitions || []).filter(t=>t.finding===f.id);
                     const last=timeline[timeline.length-1];
+                    const push = detail.push_reviews?.find(r => r.finding_id === f.id);
                     return (
                     <article key={f.id + i}>
                       <Badge value={f.severity === "P1" ? "Critical" : f.severity} />
@@ -399,6 +431,7 @@ function App() {
                       <small>
                         {last?.state || f.state || "Candidate"} · {f.property || f.repair_status} {f.change && " · " + f.change}
                       </small>
+                      {push && <PushFinding item={push} />}
                       {detail.repairs?.some(r=>r.finding_id===f.id) && <p><a href={"/review/"+id+"/repair?finding="+f.id}>Review repair evidence</a></p>}
                       <details>
                         <summary>Observations and scope limits</summary>
@@ -418,6 +451,10 @@ function App() {
                     <h2>Push decision</h2>
                     <Badge value={detail.push_decision.action} />
                     <p>{detail.push_decision.reason}</p>
+                    {detail.staging_issue && <p>{detail.staging_issue}</p>}
+                    {detail.proposal_ready && detail.push_reviews?.filter(r => r.state === "proposed")
+                      .map((r, _, proposals) => <pre key={r.finding_id}>{"laundromat approve " + detail.id +
+                        (proposals.length > 1 ? " --finding " + r.finding_id : "")}</pre>)}
                   </section>
                 )}
                 {!!detail.dependency_changes?.length && (
@@ -457,6 +494,26 @@ function App() {
       </main>
     </>
   );
+}
+function PushFinding({item}: {item: PushEvidence}) {
+  return <div>
+    <p><Badge value={item.state} /> {item.reason || item.property}</p>
+    {item.introducing_commit && <details><summary>Introducing change · {item.change}</summary>
+      <code>{item.introducing_commit}</code>{item.introducing_diff && <pre>{item.introducing_diff}</pre>}
+    </details>}
+    {item.detect && <><h3>Detect</h3><p>{item.detect.reasoning}</p>
+      <p>{item.detect.property} · {item.policy_route}</p></>}
+    {item.test && <><h3>Prove</h3><details><summary>Frozen test specification</summary>
+      <code>{item.test_sha256}</code><Data value={item.test}/></details>
+      <p>Original · {item.before?.status || "pending"}<br/>Candidate · {item.after?.status || "pending"}</p>
+      <details><summary>Test observations</summary><Data value={{original:item.before, candidate:item.after,
+        regression:item.regression, rescan:item.rescan}}/></details></>}
+    {item.patch && <><h3>Fix · proposed diff</h3><p>{item.rationale}</p><pre>{item.patch}</pre></>}
+    {item.staged_diff && <><h3>Staged diff</h3><pre>{item.staged_diff}</pre></>}
+    {item.working_tree_issue && <p>{item.working_tree_issue}</p>}
+    {item.committed_oid && <p>Committed in <code>{item.committed_oid}</code></p>}
+    {!!item.role_calls.length && <details><summary>Model calls</summary><Data value={item.role_calls}/></details>}
+  </div>;
 }
 function Evidence({ r, id, authorized, proposal }: { r: Repair; id: string; authorized:boolean; proposal:boolean }) {
   const phases = [r.before, r.after];

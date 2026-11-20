@@ -9,3 +9,8 @@ rules:
     severity: WARNING
     message: Prepared statement receives concatenated text. Check argument binding.
     pattern: $DB.prepare($TEXT + $VALUE)
+  - id: laundromat.stock-query
+    languages: [javascript]
+    severity: WARNING
+    message: The aisle value changes the inventory SQL statement. Check parameter binding.
+    pattern: $DB.prepare(`SELECT sku FROM stock WHERE aisle = '${$VALUE}' ORDER BY sku`)

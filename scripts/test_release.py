@@ -140,6 +140,8 @@ def main():
             raise ValueError("Rollback failed")
         bare = base / "remote.git"
         run("git", "init", "--bare", "-q", bare, cwd=base, env=env)
+        # Exercise a clean push after the independent rollback check.
+        shutil.copyfile(repo / "safe-search.js", repo / "search.js")
         run("git", "add", ".", cwd=repo, env=env)
         run(
             "git",

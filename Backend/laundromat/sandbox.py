@@ -68,6 +68,46 @@ def command(args, timeout, env=None):
     return p.stdout
 
 
+def container_args(name):
+    return [
+        "docker",
+        "create",
+        "--name",
+        name,
+        "--pull=never",
+        "--network=none",
+        "--read-only",
+        "--user",
+        "65534:65534",
+        "--cap-drop=ALL",
+        "--security-opt=no-new-privileges",
+        "--pids-limit=32",
+        "--cpus=0.5",
+        "--memory=128m",
+        "--memory-swap=128m",
+        "--log-driver=none",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,nodev,size=4m",
+    ]
+
+
+def remove_container(name, cid, remaining):
+    command(["docker", "rm", "-f", name], remaining())
+    present = command(
+        [
+            "docker",
+            "ps",
+            "-aq",
+            "--no-trunc",
+            "--filter",
+            "id=" + cid if cid and re.fullmatch(r"[0-9a-f]{64}", cid) else f"name=^/{name}$",
+        ],
+        remaining(),
+    )
+    if present.strip():
+        raise ValueError("Container still present")
+
+
 def run(req, data=b"", mode="strict"):
     start = time.monotonic()
     req = req if isinstance(req, dict) else {}
@@ -123,30 +163,17 @@ def run(req, data=b"", mode="strict"):
                     remaining(teardown_budget),
                 )
                 name = "laundromat-" + uuid.uuid4().hex
-                args = [
-                    "docker",
-                    "create",
-                    "--name",
-                    name,
-                    "--pull=never",
-                    "--network=none",
-                    "--read-only",
-                    "--user",
-                    "65534:65534",
-                    "--cap-drop=ALL",
-                    "--security-opt=no-new-privileges",
-                    "--pids-limit=32",
-                    "--cpus=0.5",
-                    "--memory=128m",
-                    "--memory-swap=128m",
-                    "--log-driver=none",
-                    "--tmpfs",
-                    "/tmp:rw,noexec,nosuid,nodev,size=4m",
-                ]
+                args = container_args(name)
                 if data:
-                    args += ["--mount", f"type=bind,src={sample},dst=/sample/search.js,readonly"]
+                    args += [
+                        "--mount",
+                        f"type=bind,src={sample},dst=/sample/search.js,readonly",
+                    ]
                 cid = (
-                    command([*args, IMAGE, test, "/sample/search.js"], remaining(teardown_budget))
+                    command(
+                        [*args, IMAGE, test, "/sample/search.js"],
+                        remaining(teardown_budget),
+                    )
                     .decode()
                     .strip()
                 )
@@ -174,22 +201,7 @@ def run(req, data=b"", mode="strict"):
     finally:
         if name:
             try:
-                command(["docker", "rm", "-f", name], remaining())
-                present = command(
-                    [
-                        "docker",
-                        "ps",
-                        "-aq",
-                        "--no-trunc",
-                        "--filter",
-                        "id=" + cid
-                        if cid and re.fullmatch(r"[0-9a-f]{64}", cid)
-                        else f"name=^/{name}$",
-                    ],
-                    remaining(),
-                )
-                if present.strip():
-                    raise ValueError("Container still present")
+                remove_container(name, cid, remaining)
                 result["cleanup_status"] = "removed"
             except (ValueError, OSError, subprocess.TimeoutExpired) as exc:
                 result.update(

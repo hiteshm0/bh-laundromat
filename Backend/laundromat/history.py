@@ -8,6 +8,7 @@ import uuid
 from contextlib import contextmanager
 from pathlib import Path
 
+from .provider import redact
 from .snapshot import TOKEN
 from .workspace import LAB, DEFAULT_HOME, CHECKOUT, EDITABLE, digest, json_bytes
 
@@ -33,7 +34,7 @@ def home():
 
 
 def encoded(value):
-    return TOKEN.sub("[redacted]", json.dumps(value, sort_keys=True))
+    return redact(json.dumps(value, sort_keys=True))
 
 
 @contextmanager
@@ -56,6 +57,7 @@ def database():
         CREATE TABLE IF NOT EXISTS transitions(id INTEGER PRIMARY KEY AUTOINCREMENT, scan TEXT, finding TEXT,
               state TEXT, reason TEXT, actor TEXT, time REAL);
         CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY AUTOINCREMENT, scan TEXT, kind TEXT, time REAL);
+        CREATE TABLE IF NOT EXISTS push_evidence(scan TEXT,finding TEXT,data TEXT,PRIMARY KEY(scan,finding));
         CREATE TABLE IF NOT EXISTS acknowledgements(repo TEXT,snapshot TEXT,finding TEXT,PRIMARY KEY(repo,snapshot,finding));
         """)
         db.execute("BEGIN IMMEDIATE")
@@ -105,19 +107,28 @@ def finish(sid, result):
             return
         body = dict(result)
         for i, finding in enumerate(body.pop("findings", [])):
-            observe_once(db, sid, finding["id"], "candidate", finding["explanation"])
-            state = finding.get("state", "candidate")
-            if state != "candidate":
-                observe_once(
-                    db, sid, finding["id"], state, finding.get("property", finding["explanation"])
-                )
-            elif (
-                "unsupported" in finding.get("repair_status", "")
-                or result["status"] == "incomplete"
-            ):
-                transition(
-                    db, sid, finding["id"], "unsupported/incomplete", finding["repair_status"]
-                )
+            if not result.get("workflow_version"):
+                observe_once(db, sid, finding["id"], "candidate", finding["explanation"])
+                state = finding.get("state", "candidate")
+                if state != "candidate":
+                    observe_once(
+                        db,
+                        sid,
+                        finding["id"],
+                        state,
+                        finding.get("property", finding["explanation"]),
+                    )
+                elif (
+                    "unsupported" in finding.get("repair_status", "")
+                    or result["status"] == "incomplete"
+                ):
+                    transition(
+                        db,
+                        sid,
+                        finding["id"],
+                        "unsupported/incomplete",
+                        finding["repair_status"],
+                    )
             db.execute("INSERT INTO findings VALUES(?,?,?)", (sid, i, encoded(finding)))
         for t in body.get("replayed_transitions", []):
             db.execute(
@@ -136,7 +147,13 @@ def finish(sid, result):
                     o.get("reason", "No install lifecycle declaration"),
                 )
         if not result.get("findings") and result["status"] == "clean":
-            transition(db, sid, None, "checked-negative", "Selected checks produced no candidates")
+            transition(
+                db,
+                sid,
+                None,
+                "checked-negative",
+                "Selected checks produced no candidates",
+            )
         db.execute("DELETE FROM previews WHERE scan=?", (sid,))
         repair = body.pop("repair", None)
         for item in body.pop("repairs", []):
@@ -148,7 +165,8 @@ def finish(sid, result):
         if repair:
             db.execute("INSERT INTO repairs VALUES(?,?)", (sid, encoded(repair)))
         db.execute(
-            "UPDATE scans SET status=?,result=? WHERE id=?", (result["status"], encoded(body), sid)
+            "UPDATE scans SET status=?,result=? WHERE id=?",
+            (result["status"], encoded(body), sid),
         )
         db.execute("UPDATE jobs SET state='done' WHERE scan=?", (sid,))
         event(db, sid, result["status"])
@@ -164,7 +182,12 @@ def detail(sid):
             json.loads(r[0])
             for r in db.execute("SELECT data FROM findings WHERE scan=? ORDER BY ordinal", (sid,))
         ]
-        if not findings and row["status"] in ("running", "capturing", "deciding", "interrupted"):
+        if not findings and row["status"] in (
+            "running",
+            "capturing",
+            "deciding",
+            "interrupted",
+        ):
             findings = [
                 json.loads(r[0])
                 for r in db.execute("SELECT data FROM previews WHERE scan=? ORDER BY rowid", (sid,))
@@ -202,7 +225,16 @@ def detail(sid):
                     t
                     for t in reversed(transitions)
                     if t["state"]
-                    in ("property-confirmed", "checked-negative", "fixed", "restored", "candidate")
+                    in (
+                        "property-confirmed",
+                        "checked-negative",
+                        "fixed",
+                        "restored",
+                        "candidate",
+                        "verified",
+                        "staged",
+                        "committed",
+                    )
                 ),
                 None,
             ),
@@ -214,7 +246,8 @@ def detail(sid):
             "repairs": [
                 json.loads(r[0])
                 for r in db.execute(
-                    "SELECT data FROM finding_repairs WHERE scan=? ORDER BY rowid", (sid,)
+                    "SELECT data FROM finding_repairs WHERE scan=? ORDER BY rowid",
+                    (sid,),
                 )
             ],
             "transitions": transitions,
@@ -227,6 +260,12 @@ def detail(sid):
             "job": job,
             "findings": findings,
             "repair": json.loads(repair[0]) if repair else None,
+            "push_reviews": [
+                json.loads(r[0])
+                for r in db.execute(
+                    "SELECT data FROM push_evidence WHERE scan=? ORDER BY rowid", (sid,)
+                )
+            ],
         }
 
 
@@ -307,7 +346,7 @@ def counters(findings, transitions):
         severity[key] = severity.get(key, 0) + 1
     return dict(
         caught=len(findings),
-        confirmed=sum(h.get("state") == "property-confirmed" for h in findings),
+        confirmed=sum(h.get("state") in ("property-confirmed", "verified") for h in findings),
         applied=len({t["finding"] for t in transitions if t["state"] == "fixed"}),
         adjudicated_false_positives=len(
             {t["finding"] for t in transitions if t["state"] == "adjudicated false positive"}

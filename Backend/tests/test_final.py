@@ -125,7 +125,7 @@ class LocalReview(unittest.TestCase):
         }
         with (
             patch.dict(
-                os.environ, {"OPENAI_API_KEY": "test", "LAUNDROMAT_MODEL": "recorded-parser-test"}
+                os.environ, {"LAUNDROMAT_PROVIDER": "openai", "OPENAI_API_KEY": "test", "LAUNDROMAT_MODEL": "recorded-parser-test"}
             ),
             patch(
                 "urllib.request.urlopen", return_value=io.BytesIO(json.dumps(response).encode())

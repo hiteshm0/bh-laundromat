@@ -23,3 +23,8 @@ regex = '\bsk-proj-[A-Za-z0-9_-]{32,}\b'
 id = "aws-access-id"
 description = "Pinned credential format"
 regex = '\bAKIA[A-Z0-9]{16}\b'
+
+[[rules]]
+id = "groq-api-key"
+description = "Groq API key format"
+regex = '\bgsk_[A-Za-z0-9]{32,}\b'

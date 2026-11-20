@@ -56,10 +56,13 @@ def require(condition, message):
 
 
 def push(repo, args, expected, env=None):
+    refs_before = git(repo, "ls-remote", "--refs", "local") if expected != "allow" else None
     start = time.monotonic()
     p = run(repo, "git", "push", "local", *args, ok=False, env=env)
     elapsed_ms = round((time.monotonic() - start) * 1000)
     output = p.stdout + p.stderr
+    if refs_before is not None:
+        require(git(repo, "ls-remote", "--refs", "local") == refs_before, "Blocked push moved a remote ref")
     require(not re.search(r"\bLMTEST_[A-Z0-9]{20,32}\b", output), "Unredacted terminal output")
     match = re.search(r"pre-push · [a-z]+ · ([0-9a-f]{32})", output)
     require(match is not None, "Expected a persisted hook scan on a real push: " + output[:180])

@@ -95,10 +95,16 @@ def predictions(response, files):
             or h.get("path") not in files
             or not isinstance(h.get("rationale"), str)
             or not isinstance(h.get("property"), str)
-            or (h.get("line") is not None and (type(h["line"]) != int or h["line"] < 1))
+            or (h.get("line") is not None and (type(h["line"]) is not int or h["line"] < 1))
         ):
             raise ValueError("Invalid finding location, category or rationale")
     return values
+
+
+def independent_call(name, artifact, trace, *, schema=None, **limits):
+    """One stateless role invocation, with an optional validated artifact contract."""
+    result = provider.role(name, artifact, trace, **limits)
+    return schema.model_validate(result) if schema is not None else result
 
 
 def arm(system, files, safe, *, before_files=None):
@@ -143,7 +149,7 @@ def arm(system, files, safe, *, before_files=None):
                     for k, v in before_files.items()
                     if k.endswith("package.json")
                 }
-            response = provider.role("B" if system == "B" else "detect", artifact, trace)
+            response = independent_call("B" if system == "B" else "detect", artifact, trace)
             findings.extend(predictions(response, files))
             result["raw_predictions_complete"] = True
             if system == "B":
@@ -165,7 +171,7 @@ def arm(system, files, safe, *, before_files=None):
                     )
                 }
                 refs = {p: digest(files[p]) for p in options}
-                choice = provider.role(
+                choice = independent_call(
                     "verify",
                     dict(schema=2, candidates=findings, evidence_refs=refs, allowed_tests=options),
                     trace,
@@ -179,7 +185,7 @@ def arm(system, files, safe, *, before_files=None):
                     if observation["status"] == "incomplete":
                         raise ValueError("Original property check incomplete")
                     if observation["status"] == "fail":
-                        answer = provider.role(
+                        answer = independent_call(
                             "fix",
                             dict(
                                 schema=2,

@@ -1,8 +1,61 @@
 # Laundromat
 
-Laundromat reviews a proposed change, a local snapshot, or the outgoing objects in a Git push. The CLI and local dashboard distinguish static candidates, observed fixture properties, repair application, and push policy. General repository code is parsed as data. Runtime tests accept only the reviewed fixture bytes.
+Laundromat reviews a proposed change, a local snapshot, or the outgoing objects in a Git push. The CLI and local dashboard distinguish static candidates, observed fixture properties, repair application, and push policy. The pre-push graph supports one runtime repair contract for a Node/SQLite inventory service. Snapshot reviews retain their existing fixture adapters.
 
-## Install the release
+## Install the Detect → Prove → Fix hook
+
+From this source checkout, use Python 3.11+, Git, Go (for OPA), and Docker with Linux ARM64 support. Build and install the current source to get the graph and dashboard.
+
+```sh
+python3 -m venv .venv
+source .venv/bin/activate
+npm ci --prefix Frontend --ignore-scripts
+npm run build --prefix Frontend
+python -m pip install -e ./Backend
+laundromat-install-gitleaks
+GOBIN="$VIRTUAL_ENV/bin" go install github.com/open-policy-agent/opa@v1.8.0
+docker load -i release/verifier-linux-arm64.tar.gz
+```
+
+**Add the API key to the ignored `.env.local` file in this checkout.** For Groq Studio, set `LAUNDROMAT_PROVIDER=groq` and add your key under `GROQ_API_KEY`. The example selects `openai/gpt-oss-20b` on Groq for all three roles. OpenAI remains the default when the provider setting is omitted and uses `OPENAI_API_KEY` with your OpenAI model ID. Load the file in the terminal that runs Git. The hook inherits that environment. A Git client launched independently needs the same exported variables in its launch environment.
+
+```sh
+cp -n .env.example .env.local
+chmod 600 .env.local
+${EDITOR:-vi} .env.local
+source ./.env.local
+```
+
+Install the hook once in the repository to review. The mode commands work anywhere inside that repository. Only the mode is stored under `laundromat.mode` in local Git configuration.
+
+```sh
+laundromat install-hook /path/to/repo
+cd /path/to/repo
+laundromat switch developer
+laundromat mode --json
+git push
+laundromat show SCAN_ID
+laundromat approve SCAN_ID
+git diff --cached
+```
+
+Developer is the default. Approval checks the reviewed branch, commit and affected bytes, then stages the verified hunk. To authorize automatic staging, run `laundromat switch vibe-coder`. A push with a verified repair stops in both modes. Review and commit the staged changes yourself, then push again. Overlapping edits and ambiguous ref assignments leave a proposal in the receipt. A credential in an intermediate outgoing commit still blocks after a later deletion.
+
+### Reproduce the inventory review
+
+From this checkout with the virtual environment active, select a run:
+
+```sh
+python scripts/push_demo.py --mode developer
+python scripts/push_demo.py --mode vibe-coder
+python scripts/push_demo.py --mode vibe-coder --mock-provider
+```
+
+Each invocation creates a disposable repository, bare remote and separate SQLite ledger. The first two commands use your exported model credentials. The last uses labelled mock Responses and real scanners, Git and Docker. The script prints the receipt, exact dashboard command, review URL, and approval command or staged diff. Run the printed dashboard command to view the evidence collected while the API was offline.
+
+The packaged Rego policy handles strong credential matches and dependency acknowledgements locally. Detect reviews new code-pattern candidates with a redacted excerpt and location. For the approved inventory service, Prove authors cases over ordinary aisle names and ordered SKU results. A trusted adapter freezes the test, observes statement text and bound arguments in Docker, and records the original result. An observed binding violation allows Fix to return a one-line replacement. Certification requires the candidate to pass the frozen test, the checked-in inventory regression and the detector recheck. Other services retain static findings. Each push has at most nine provider requests, 6,500 input characters and 700 output tokens per call, a 25-second call timeout, and a 150-second window to start model work. A required role or verifier failure blocks as incomplete.
+
+## Install the earlier 0.2.0 release
 
 Use Python 3.11 or later, Git, and Gitleaks 8.28.0 on macOS or Linux. The release was exercised with Python 3.13 and Node 22.21.0. The wheel includes the Semgrep and Gitleaks policies, fixture inputs, offline metadata, expected observations, and production dashboard. Pip installs the Python dependencies, including Semgrep. The supplied verifier image is Linux ARM64.
 
@@ -67,7 +120,7 @@ laundromat seed-demo-history --json
 laundromat --demo-history serve --port 8732
 ```
 
-Hook installation is explicit and preserves existing hooks and custom hook paths. Pushes scan commit messages, intermediate file contents and all supplied refs. The hook only reads Git objects. Strong credential matches and incomplete required scans block. A P2 acknowledgement applies to the finding, repository and outgoing snapshot. A new branch may include already-published history when an exact exclusion is unavailable. Limits are 256 outgoing commits, 64 updates, 4,096 paths or blobs, 2 MB per file and 32 MB of distinct content.
+Hook installation is explicit and preserves existing hooks and custom hook paths. Pushes scan commit messages, intermediate file contents and all supplied refs. Detection reads outgoing Git objects. Staging follows the approval mode described above. Strong credential matches and incomplete required scans block. A P2 acknowledgement applies to the finding, repository and outgoing snapshot. A new branch may include already-published history when an exact exclusion is unavailable. Limits are 256 outgoing commits, 64 updates, 4,096 paths or blobs, 2 MB per file and 32 MB of distinct content.
 
 The service binds to loopback. Open the repository history or refresh a scan at `/review/SCAN_ID`. Registered repositories can submit jobs through `POST /scans`. Transitions and receipt updates are durable in SQLite, and interrupted ordinary jobs can be retried. An interrupted capture needs a fresh task window. An abandoned push needs fresh Git refs. For Vite development, set `LAUNDROMAT_API_URL` to the desired loopback backend. [Local dashboard](http://127.0.0.1:8731/)
 
@@ -84,4 +137,4 @@ python scripts/check_dashboard.py
 python Research/evaluate.py --out /tmp/laundromat-offline.json
 ```
 
-The browser check needs Chrome and uses an isolated profile. For the optional live model comparison, configure `OPENAI_API_KEY` and `LAUNDROMAT_MODEL` and pass `--live`. Systems A, B, split and template can be selected individually with `--arm`. The recorded response in the tests exercises parsing. [Current measurements and limitations](Research/README.md) · [Review commands](Docs/final-review.md)
+The browser check needs Chrome and uses an isolated profile. For the optional live model comparison, load your provider configuration and pass `--live`. Systems A, B, split and template can be selected individually with `--arm`. The recorded response in the tests exercises parsing. [Current measurements and limitations](Research/README.md) · [Review commands](Docs/final-review.md)

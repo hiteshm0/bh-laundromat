@@ -1,4 +1,4 @@
-"""Local pre-push policy over immutable Git objects. No checkout or model is invoked."""
+"""Collect and scan immutable Git objects for the pre-push graph."""
 
 import os
 import re
@@ -6,7 +6,6 @@ import shlex
 import subprocess
 import sys
 import time
-import uuid
 from pathlib import Path
 
 from . import detect, history, pipeline
@@ -108,26 +107,39 @@ def tree(repo, commit):
             yield name, oid
 
 
-def decide(repo, remote, lines):
-    repo = Path(repo).resolve()
-    start = time.monotonic()
-    updates, commits, tips, hits, issues = [], [], [], [], []
-    blobs, secret_cache, metadata = {}, {}, []
-    structure, tip_coverage = [], []
-    sid = history.submit(
-        dict(
-            trigger="pre-push",
-            pid=os.getpid(),
-            scope=None,
-            snapshot=dict(repository=str(repo), sha256=None, revision=None, files={}, issues=[]),
-        ),
-        uuid.uuid4().hex,
-        state="deciding",
+def repository(repo):
+    return Path(os.fsdecode(git(repo, "rev-parse", "--show-toplevel").rstrip(b"\n"))).resolve()
+
+
+def mode(repo, setting=None):
+    repository(repo)
+    choices = ("developer", "vibe-coder")
+    if setting is not None:
+        if setting not in choices:
+            raise ValueError("Choose developer or vibe-coder")
+        git(repo, "config", "--local", "laundromat.mode", setting)
+    value = (
+        git(repo, "config", "--local", "--get", "laundromat.mode", check=False).decode().strip()
+        or "developer"
     )
+    if value not in choices:
+        raise ValueError("Invalid local laundromat.mode")
+    return value
+
+
+def decide(repo, remote, lines):
+    from .push_graph import review_push
+
+    return review_push(repository(repo), remote, lines)
+
+
+def scan_objects(repo, updates, commits, tips, issues):
+    start = time.monotonic()
+    hits, blobs, secret_cache, metadata = [], {}, {}, []
+    structure, tip_coverage = [], []
     history_status, tip_status = "incomplete", "outside scope"
     versions = {"secret_rules_sha256": digest((detect.RULES / "synthetic.toml").read_bytes())}
     try:
-        updates, commits, tips = commits_for(repo, remote, lines)
         total_bytes = 0
 
         def read(oid):
@@ -170,7 +182,13 @@ def decide(repo, remote, lines):
                             )
                         )
             history_status = "complete" if commits else "no outgoing commits"
-        except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as exc:
+        except (
+            OSError,
+            ValueError,
+            KeyError,
+            TypeError,
+            subprocess.SubprocessError,
+        ) as exc:
             issues.append("Required scan incomplete: outgoing history: " + str(exc))
         tip_issue_count = len(issues)
         tip_status = "incomplete" if tips else "no outgoing tips"
@@ -192,7 +210,7 @@ def decide(repo, remote, lines):
                     "baseline_known": True,
                     "skip_history_secrets": True,
                 }
-                checked = pipeline.inspect(req, files, before_files=prior, verify=False)
+                checked = pipeline.scan_rules(req, files, before_files=prior)
                 issues.extend(checked["issues"])
                 tip_coverage.append(
                     dict(
@@ -206,6 +224,7 @@ def decide(repo, remote, lines):
                 )
                 for hit in checked["findings"]:
                     hit["evidence"]["commit"] = tip
+                    hit["evidence"]["base"] = base
                     hits.append(hit)
                 for signal in checked["dependency_changes"]:
                     if signal["gained"]:
@@ -213,7 +232,7 @@ def decide(repo, remote, lines):
                             detect.finding(
                                 "metadata",
                                 "install-script-change",
-                                "recorded-package.json",
+                                signal.get("path", "recorded-package.json"),
                                 None,
                                 "P4",
                                 "recorded metadata",
@@ -226,47 +245,34 @@ def decide(repo, remote, lines):
                 structure.extend(checked["structural_observations"])
         if tips and len(issues) == tip_issue_count:
             tip_status = "complete"
-    except (ValueError, OSError, KeyError, TypeError, subprocess.SubprocessError) as exc:
+    except (
+        ValueError,
+        OSError,
+        KeyError,
+        TypeError,
+        subprocess.SubprocessError,
+    ) as exc:
         issues.append("Required scan incomplete: " + str(exc))
     scope_hash = digest(json_bytes({"updates": updates, "commits": commits, "tips": tips}))
-    with history.database() as db:
-        acknowledged = {
-            r[0]
-            for r in db.execute(
-                "SELECT finding FROM acknowledgements WHERE repo=? AND snapshot=?",
-                (str(repo), scope_hash),
-            )
-        }
     hits.sort(key=lambda h: (h["severity"], h["path"], h["line"] or 0))
     for h in hits:
         h["scope_limits"] = pipeline.LIMITS
-    pending = sorted({h["id"] for h in hits if h["push_policy"] == "acknowledge"} - acknowledged)
-    if issues:
-        action, reason = "block", "; ".join(issues)
-    elif any(h["push_policy"] == "block" for h in hits):
-        action, reason = "block", "Credential match in outgoing history; owner remediation required"
-    elif pending:
-        action, reason = (
-            "acknowledge",
-            "P2 warning requires acknowledgement for this finding and snapshot",
-        )
-    else:
-        action, reason = "allow", "Local policy checks satisfied"
     req = dict(
         trigger="pre-push",
         snapshot=dict(
-            repository=str(repo), sha256=scope_hash, revision=tips, files={}, issues=issues
+            repository=str(repo),
+            sha256=scope_hash,
+            revision=tips,
+            files={},
+            issues=issues,
         ),
         scope=commits,
         updates=updates,
     )
-    with history.database() as db:
-        db.execute("UPDATE scans SET request=? WHERE id=?", (history.encoded(req), sid))
     result = dict(
         status="incomplete" if issues else "findings" if hits else "clean",
         findings=hits,
         issues=issues,
-        push_decision=dict(action=action, reason=reason, pending=pending),
         versions=versions,
         coverage=dict(
             outgoing_commits=len(commits),
@@ -286,8 +292,7 @@ def decide(repo, remote, lines):
         scope_limits=pipeline.LIMITS,
         elapsed_ms=round((time.monotonic() - start) * 1000),
     )
-    history.finish(sid, result)
-    return history.detail(sid)
+    return req, result
 
 
 def acknowledge(sid, fid):

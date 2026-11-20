@@ -190,8 +190,11 @@ def main():
     parser.add_argument("--out", type=Path)
     args = parser.parse_args()
     args.out = args.out or HERE / ("results-live.json" if args.live else "results-offline.json")
-    if args.live and not (os.getenv("OPENAI_API_KEY") and os.getenv("LAUNDROMAT_MODEL")):
-        parser.error("Live B/C pending: set OPENAI_API_KEY and LAUNDROMAT_MODEL")
+    if args.live:
+        try:
+            provider.configuration()
+        except ValueError as exc:
+            parser.error(str(exc))
     data = (HERE / "manifest-v1.json").read_bytes()
     fingerprint = digest(data)
     if fingerprint != (HERE / "manifest-v1.sha256").read_text().split()[0]:

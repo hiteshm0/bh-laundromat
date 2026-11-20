@@ -64,6 +64,26 @@ def output(value, machine):
                 )
             if r.get("model_issue"):
                 typer.echo(r["model_issue"])
+        if value.get("mode"):
+            typer.echo("Repository mode · " + value["mode"])
+        for item in value.get("push_reviews", []):
+            typer.echo(f"{item['path']} · {item['state']} · {item.get('reason') or item.get('property', '')}")
+            if item.get("working_tree_issue"):
+                typer.echo(item["working_tree_issue"])
+            if item.get("patch"):
+                typer.echo(item["patch"], nl=False)
+        if value.get("staging_issue"):
+            typer.echo(value["staging_issue"])
+        states = {r["state"] for r in value.get("push_reviews", [])}
+        if value.get("proposal_ready") and "proposed" in states:
+            proposals = [r for r in value["push_reviews"] if r["state"] == "proposed"]
+            for p in proposals:
+                command = "laundromat approve " + value["id"]
+                if len(proposals) > 1:
+                    command += " --finding " + p["finding_id"]
+                typer.echo("Approve and stage with " + command)
+        if "staged" in states:
+            typer.echo("Review git diff --cached, commit the staged repair, then push again.")
         if d := value.get("push_decision"):
             typer.echo(f"{d['action']} · {d['reason']}")
             for fid in d.get("pending", []):
@@ -149,6 +169,28 @@ def register_commands(app):
         with errors(json_mode):
             output(history.detail(legacy.load(receipt)), json_mode)
 
+    @app.command()
+    def switch(setting: str):
+        """Set the approval mode in this repository's local Git configuration."""
+        with errors(False):
+            typer.echo(push.mode(Path.cwd(), setting))
+
+    @app.command()
+    def mode(json_mode: bool = typer.Option(False, "--json")):
+        """Print the effective repository mode."""
+        with errors(json_mode):
+            value = push.mode(Path.cwd())
+            typer.echo(history.encoded({"mode": value}) if json_mode else value)
+
+    @app.command()
+    def approve(scan_id: str, finding: str = typer.Option(None, "--finding"), json_mode: bool = typer.Option(False, "--json")):
+        """Stage a fresh, verified pre-push proposal in its reviewed worktree."""
+        from . import push_stage
+
+        with errors(json_mode):
+            result = push_stage.apply(scan_id, finding=finding)
+            typer.echo(history.encoded(result) if json_mode else result["next"])
+
     @app.command("install-hook")
     def install_hook(repo: Path, json_mode: bool = typer.Option(False, "--json")):
         with errors(json_mode):
@@ -175,4 +217,4 @@ def register_commands(app):
     def serve(port: int = typer.Option(8731, min=1, max=65535)):
         import uvicorn
 
-        uvicorn.run("laundromat.api:app", host="127.0.0.1", port=port, log_level="warning")
+        uvicorn.run("laundromat.api:app", host="127.0.0.1", port=port, log_level="info", access_log=False)

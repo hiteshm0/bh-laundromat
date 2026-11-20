@@ -9,7 +9,7 @@ from pathlib import Path
 from .workspace import digest, json_bytes, plain
 
 TOKEN = re.compile(
-    r"(?:LMTEST_[A-Za-z0-9_-]+|(?:ghp_|github_pat_|sk-proj-)[A-Za-z0-9_-]{8,}|AKIA[A-Z0-9]{16})"
+    r"(?:LMTEST_[A-Za-z0-9_-]+|(?:ghp_|github_pat_|sk-proj-|gsk_)[A-Za-z0-9_-]{8,}|AKIA[A-Z0-9]{16})"
 )
 IGNORE = {".git", ".venv", "node_modules", ".laundromat", ".laundromat-history", "__pycache__"}
 LIMIT = 2_000_000

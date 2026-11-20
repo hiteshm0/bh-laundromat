@@ -18,16 +18,7 @@ LIMITS = [
 ]
 
 
-def inspect(
-    request,
-    files,
-    *,
-    model_only=False,
-    model_context=None,
-    before_files=None,
-    context_files=None,
-    verify=True,
-):
+def scan_rules(request, files, *, before_files=None, context_files=None):
     hits, coverage, signals = [], {}, []
     issues = list(request["snapshot"]["issues"])
     if request.get("task_status", "completed") != "completed":
@@ -181,7 +172,7 @@ def inspect(
             coverage["dependency"]["status"] = "incomplete"
             issues.append(f"Unsupported lockfile: {name}")
         if leaf == "recorded-package.json":
-            run("package metadata", [name], lambda: signals.append(detect.install_change(data)))
+            run("package metadata", [name], lambda: signals.append(dict(detect.install_change(data), path=name)))
     js = {name: data for name, data in files.items() if name.endswith((".js", ".cjs", ".mjs"))}
     for path, data in js.items():
         run(
@@ -215,6 +206,22 @@ def inspect(
     if selected in ("command", "prompt"):
         hits[:] = [h for h in hits if h["category"] == selected]
     hits.sort(key=lambda h: (h["severity"], h["path"], h["line"] or 0, h["rule"]))
+    return result
+
+
+def inspect(
+    request,
+    files,
+    *,
+    model_only=False,
+    model_context=None,
+    before_files=None,
+    context_files=None,
+    verify=True,
+):
+    result = scan_rules(request, files, before_files=before_files, context_files=context_files)
+    hits, coverage, issues = result["findings"], result["coverage"], result["issues"]
+    selected = request.get("category")
     for hit in hits:
         hit["state"] = "candidate"
         if request.get("progress_id"):
