@@ -2,6 +2,7 @@
 
 import json
 import os
+import shutil
 import sqlite3
 import time
 import uuid
@@ -101,10 +102,18 @@ def submit(request, key=None, *, state="queued"):
     return sid
 
 
-def finish(sid, result):
+def finish(sid, result, *, refresh_demo=False):
     with database() as db:
         if db.execute("SELECT state FROM jobs WHERE scan=?", (sid,)).fetchone()[0] == "done":
-            return
+            if not refresh_demo:
+                return
+            provenance = db.execute(
+                "SELECT json_extract(request,'$.provenance') FROM scans WHERE id=?", (sid,)
+            ).fetchone()[0]
+            if provenance != "demo replay":
+                raise ValueError("Only demo replay receipts can be reseeded")
+            for table in ("repairs", "finding_repairs", "findings", "transitions"):
+                db.execute(f"DELETE FROM {table} WHERE scan=?", (sid,))
         body = dict(result)
         for i, finding in enumerate(body.pop("findings", [])):
             if not result.get("workflow_version"):
@@ -356,7 +365,10 @@ def counters(findings, transitions):
 
 
 def demo_home():
-    folder = home() / "demo-replay-v2"
+    base = home()
+    if base.name == "demo-replay-v2" and (base / ".laundromat-demo").is_file():
+        return base
+    folder = base / "demo-replay-v2"
     marker = folder / ".laundromat-demo"
     if folder.is_symlink() or (folder.exists() and not marker.is_file()):
         raise ValueError("Expected a marked synthetic ledger")
@@ -365,12 +377,15 @@ def demo_home():
     return folder
 
 
-def seed_demo_history():
+def seed_demo_history(*, reseed=False):
     from .scenarios import SCENARIOS, examples, measure
 
     root = demo_home()
     token = LEDGER.set(root)
     try:
+        missing = [tool for tool in ("gitleaks", "semgrep", "docker") if not shutil.which(tool)]
+        if missing:
+            raise ValueError(f"Required tools not found: {', '.join(missing)}. Install them before seeding the demo ledger.")
         for scenario in SCENARIOS:
             for label, before, files in examples(scenario):
                 identity = {p: digest(v) for p, v in files.items()}
@@ -390,20 +405,26 @@ def seed_demo_history():
                     scope=sorted(files),
                 )
                 sid = submit(req, "demo-v2/" + key, state="importing")
-                if detail(sid)["job"]["state"] != "done":
+                if reseed or detail(sid)["job"]["state"] != "done":
                     result = measure(before, files)
                     if result.get("verified_actions"):
                         if label == "SQL binding":
                             replay_rollback(files, result)
                         result["replayed_actions"] = result["verified_actions"]
                         result["verified_actions"] = []
-                    finish(sid, result)
+                    finish(sid, result, refresh_demo=reseed)
         rows = listing()
+        with database() as db:
+            injection_ids = [r[0] for r in db.execute(
+                "SELECT id FROM scans WHERE json_extract(request,'$.scenario')='injection' ORDER BY created,id"
+            )]
         return {
             "ledger": str(root),
             "scans": len(rows),
             "findings": sum(r["counts_summary"]["caught"] for r in rows),
             "provenance": "demo replay",
+            "demo_url": "http://localhost:8731",
+            "injection_scan_ids": injection_ids,
         }
     finally:
         LEDGER.reset(token)

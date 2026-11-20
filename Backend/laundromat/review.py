@@ -38,13 +38,13 @@ def template(data, line):
     return b"".join(lines)
 
 
-def diff(before, after):
+def diff(before, after, path=SEARCH):
     lines = difflib.diff_bytes(
         difflib.unified_diff,
         before.splitlines(True),
         after.splitlines(True),
-        fromfile=b"a/search.js",
-        tofile=b"b/search.js",
+        fromfile=("a/" + path).encode(),
+        tofile=("b/" + path).encode(),
     )
     return b"".join(
         line if line.endswith(b"\n") else line + b"\n\\ No newline at end of file\n"

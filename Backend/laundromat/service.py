@@ -59,7 +59,7 @@ def retry(sid):
         history.event(db, sid, "retried")
 
 
-def work(sid=None):
+def work(sid=None, progress_callback=None):
     from .pipeline import inspect
 
     history.home().mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -107,9 +107,10 @@ def work(sid=None):
                     selected,
                     before_files=base,
                     context_files=files,
+                    progress_callback=progress_callback,
                 )
             else:
-                result = inspect(req, selected)
+                result = inspect(req, selected, progress_callback=progress_callback)
         except Exception as exc:
             result = dict(
                 status="incomplete",

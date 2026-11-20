@@ -39,7 +39,7 @@ class Comparison(unittest.TestCase):
         )
         seen = []
 
-        def observation(test, source):
+        def observation(test, source, progress_callback=None):
             # Parser/dispatch test. The strict integration run exercises the real observer.
             from laundromat import owned
 

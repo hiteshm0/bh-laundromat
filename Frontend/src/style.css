@@ -129,6 +129,38 @@ pre {
   font-size: 0.875rem;
   font-weight: 600;
 }
+.mode-badge, .sev-chip {
+  display: inline-block;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.mode-badge {
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 0.78em;
+}
+.mode-agent { background: #3b1f6e; color: #c8aaff; }
+.mode-push { background: #0e3058; color: #7ec8ff; }
+.mode-snapshot { background: #0e3832; color: #7ecfbb; }
+.sev-bar, .detail-severity {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+.sev-chip {
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 0.72em;
+  font-weight: 700;
+  color: #111;
+}
+.sev-Critical { background: #e53935; }
+.sev-P2 { background: #fb8c00; }
+.sev-P3 { background: #fdd835; }
+.sev-P4 { background: #66bb6a; }
+.detail-severity { gap: 12px; margin: 8px 0; }
 .findings,
 .P2,
 .acknowledge,

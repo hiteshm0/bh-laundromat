@@ -209,6 +209,7 @@ def scan_objects(repo, updates, commits, tips, issues):
                     "snapshot": {"issues": []},
                     "baseline_known": True,
                     "skip_history_secrets": True,
+                    "skip_registry_check": True,
                 }
                 checked = pipeline.scan_rules(req, files, before_files=prior)
                 issues.extend(checked["issues"])

@@ -2,6 +2,7 @@
 
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 import typer
 
@@ -79,12 +80,14 @@ def register(app):
                 _intro()
             raise typer.Exit(0)
         if demo_history:
-            history.LEDGER.set(history.demo_home())
+            token = history.LEDGER.set(history.demo_home())
+            ctx.call_on_close(lambda: history.LEDGER.reset(token))
         if demo:
             if ctx.invoked_subcommand:
                 raise typer.BadParameter("--demo runs independently")
             with errors(machine):
-                rows = [scenarios.run(s) for s in ([scenario] if scenario else scenarios.SCENARIOS)]
+                rows = [scenarios.run(s, progress_callback=None if machine else typer.echo)
+                        for s in ([scenario] if scenario else scenarios.SCENARIOS)]
                 output(rows[0] if scenario else {"scenarios": rows}, machine)
         elif scenario or machine:
             raise typer.BadParameter("Use top-level --scenario and --json with --demo")
@@ -140,6 +143,7 @@ def register(app):
     ):
         """Inspect a directory, a single file, a bounded unified diff, or native pre-push refs on stdin."""
         machine = fmt == "json"
+        progress = typer.echo if fmt == "text" else None
         with errors(machine):
             mode = mode or ("proposal" if diff else "snapshot")
             classes = {
@@ -198,7 +202,7 @@ def register(app):
                         raw = handle.read(LIMIT + 1)
                 new, paths = proposal.patched(files, raw)
                 result = (
-                    proposal.compare(req, files, new, paths) if baseline == "template" else None
+                    proposal.compare(req, files, new, paths, progress) if baseline == "template" else None
                 )
                 files = {n: new[n] for n in paths if n in new}
                 req["scope"] = paths
@@ -206,10 +210,12 @@ def register(app):
                 sid = service.enqueue(
                     folder,
                     None if target.is_dir() else [target.name],
+                    # A new CLI review observes the current registry and tool availability.
+                    key=uuid.uuid4().hex,
                     trigger="read-only snapshot",
                     category=category,
                 )
-                service.work(sid)
+                service.work(sid, progress_callback=progress)
                 result = history.detail(sid)
             if baseline != "template":
                 from .experiment import arm

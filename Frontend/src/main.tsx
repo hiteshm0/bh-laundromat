@@ -39,8 +39,9 @@ type Repair = {
   patch_sha256: string;
   suite: string;
   elapsed_ms?: number;
-  before: Phase;
-  after?: Phase;
+  before: Phase | { status: string };
+  after?: Phase | { status: string };
+  reason?: string;
   source_receipt?: string;
   model_issue?: string;
   model_explanation?: string;
@@ -69,6 +70,7 @@ type PushEvidence = {
   committed_oid?: string;
 };
 type Detail = Summary & {
+  provenance?: string;
   mode?: string;
   updates?: {local: string; tip: string; remote: string; base: string}[];
   push_reviews?: PushEvidence[];
@@ -141,6 +143,25 @@ function coverageText(coverage: Fields = {}) {
 }
 function Badge({ value }: { value: string }) {
   return <span className={"badge " + value.split(" ")[0]}>{value}</span>;
+}
+function ModeBadge({ trigger }: { trigger: string }) {
+  const agent = /proposal|codex|agent|demo replay|prepared/i.test(trigger);
+  const push = /push/i.test(trigger);
+  const mode = agent ? "agent" : push ? "push" : "snapshot";
+  const label = agent ? "🤖 Agent review" : push ? "🔒 Push triage" : trigger || "Snapshot";
+  return <span className={"mode-badge mode-" + mode} title={trigger}>{label}</span>;
+}
+const severityLevels = [
+  ["Critical", "C"], ["P2", "P2"], ["P3", "P3"], ["P4", "P4"],
+] as const;
+function SeverityBar({ summary }: { summary: Summary["counts_summary"] }) {
+  const items = severityLevels.filter(([key]) => (summary?.severity?.[key] ?? 0) > 0);
+  if (!summary || !items.length) return null;
+  return <span className="sev-bar">{items.map(([key, label]) => (
+    <span key={key} className={"sev-chip sev-" + key} title={key} aria-label={key + " " + summary.severity[key]}>
+      {label} {summary.severity[key]}
+    </span>
+  ))}</span>;
 }
 async function read<T>(url: string): Promise<T> {
   const r = await fetch(url);
@@ -316,7 +337,7 @@ function App() {
                             </a>
                             <small>{date(s.created)}</small>
                           </td>
-                          <td>{s.trigger}</td>
+                          <td><ModeBadge trigger={s.trigger} /></td>
                           <td>
                             <code>{s.snapshot.sha256.slice(0, 10)}</code>
                           </td>
@@ -324,6 +345,7 @@ function App() {
                             {Object.entries(s.counts)
                               .map(([k, v]) => k + " " + v)
                               .join(" · ") || "0 findings"}
+                            <SeverityBar summary={s.counts_summary} />
                             <small>{coverageText(s.coverage)}</small>
                           </td>
                           <td>
@@ -350,6 +372,12 @@ function App() {
               </div>
               <Badge value={detail.status} />
             </div>
+            {detail.counts_summary && detail.counts_summary.caught > 0 && (
+              <div className="detail-severity">
+                <SeverityBar summary={detail.counts_summary} />
+                <small>{detail.counts_summary.confirmed} property-confirmed · {detail.counts_summary.applied} applied</small>
+              </div>
+            )}
             <div className="tabs">
               <a
                 aria-current={!repairView ? "page" : undefined}
@@ -367,7 +395,7 @@ function App() {
               )}
             </div>
             {repairView && selectedRepair ? (
-              <Evidence r={selectedRepair} id={detail.id} authorized={detail.status !== "incomplete" && (detail.verified_actions?.length ?? 1)>0} proposal={!!detail.proposal_state} />
+              <Evidence r={selectedRepair} id={detail.id} authorized={detail.status !== "incomplete" && (detail.verified_actions?.length ?? 1)>0} proposal={!!detail.proposal_state} replay={detail.provenance === "demo replay"} />
             ) : (
               <>
                 <section>
@@ -515,8 +543,16 @@ function PushFinding({item}: {item: PushEvidence}) {
     {!!item.role_calls.length && <details><summary>Model calls</summary><Data value={item.role_calls}/></details>}
   </div>;
 }
-function Evidence({ r, id, authorized, proposal }: { r: Repair; id: string; authorized:boolean; proposal:boolean }) {
-  const phases = [r.before, r.after];
+function Evidence({ r, id, authorized, proposal, replay }: { r: Repair; id: string; authorized:boolean; proposal:boolean; replay:boolean }) {
+  const phases = [r.before, r.after].map(p => p && "binding" in p ? p : undefined);
+  const secret = r.suite === "secret-env-substitution-v1";
+  const target = (r.source_receipt || id) + (!proposal && r.finding_id ? " --finding " + r.finding_id : "");
+  let action;
+  if (!replay) {
+    if (r.state === "applied") action = "laundromat undo " + target;
+    else if (secret && !proposal && r.finding_id) action = `laundromat apply-candidate ${id} ${r.finding_id}`;
+    else if (authorized && r.verdict === "verified") action = "laundromat " + (proposal ? "accept " : "apply ") + target;
+  }
   return (
     <>
       <section>
@@ -528,7 +564,8 @@ function Evidence({ r, id, authorized, proposal }: { r: Repair; id: string; auth
         </p>
         {r.model_issue && <p>{r.model_issue}</p>}
         {r.model_explanation && <p>Model explanation · {r.model_explanation}</p>}
-        {r.test_id ? <Data value={{original:r.before,candidate:r.after}}/> : <><table>
+        {secret && <p>{r.reason}</p>}
+        {r.test_id || secret ? <Data value={{original:r.before,candidate:r.after}}/> : <><table>
           <thead>
             <tr>
               <th>Check</th>
@@ -587,11 +624,7 @@ function Evidence({ r, id, authorized, proposal }: { r: Repair; id: string; auth
         <p>{r.application_actor && "Applied by " + r.application_actor}</p>
         {r.backup_reference && <p>Backup · {r.backup_reference}</p>}
         <Data value={{original:r.original_sha256, restored:r.restored_sha256}}/>
-        <pre>
-          {(r.state === "applied" ? ["undo"] : authorized && r.verdict === "verified" ? [proposal ? "accept" : "apply"] : [])
-            .map((cmd) => "laundromat " + cmd + " " + (r.source_receipt || id) + ((!proposal && r.finding_id) ? " --finding " + r.finding_id : ""))
-            .join("\n")}
-        </pre>
+        {action && <pre>{action}</pre>}
       </section>
     </>
   );

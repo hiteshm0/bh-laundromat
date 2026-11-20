@@ -66,8 +66,9 @@ def secrets(data, path, commit=None):
     hits = json.loads(p.stdout or b"[]")
     if bool(hits) != (p.returncode == 17):
         raise ValueError("Gitleaks report and exit status disagree")
-    return [
-        finding(
+    findings = {}
+    for h in sorted(hits, key=lambda row: (row["StartLine"], row.get("StartColumn", 0))):
+        hit = finding(
             "secret",
             h["RuleID"],
             path,
@@ -77,8 +78,15 @@ def secrets(data, path, commit=None):
             "Credential-shaped text matches the pinned rule. Review exposure and rotate with the owner if real.",
             commit=commit,
         )
-        for h in hits
-    ]
+        column = h.get("StartColumn")
+        if column:
+            # Preserve existing single-match IDs and distinguish additional
+            # occurrences of the same rule on the same line.
+            if hit["id"] in findings:
+                hit["id"] = digest(json_bytes([hit["id"], column]))[:24]
+            hit["evidence"]["column"] = column
+        findings[hit["id"]] = hit
+    return list(findings.values())
 
 
 def queries(files):
