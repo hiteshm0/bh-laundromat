@@ -1,0 +1,6 @@
+rules:
+  - id: laundromat.interpolated-search
+    languages: [javascript]
+    severity: WARNING
+    message: The search term is interpolated into the SQL text. Bind it at statement execution.
+    pattern: $DB.prepare(`SELECT id FROM swatches WHERE color = '${$TERM}' ORDER BY id`)

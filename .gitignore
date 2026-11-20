@@ -1,0 +1,4 @@
+.venv/
+.laundromat/
+__pycache__/
+*.egg-info/
