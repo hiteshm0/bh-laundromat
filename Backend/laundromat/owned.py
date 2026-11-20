@@ -19,8 +19,10 @@ EXPECTED = {
 }
 
 
-def observe(test, data):
-    r = sandbox.run(sandbox.request(test, data), data, "strict")
+def observe(test, data, progress_callback=None):
+    if progress_callback:
+        progress_callback(f"[sandbox] Running behavioral test: {test}...")
+    r = sandbox.run(sandbox.request(test, data), data, "strict", progress_callback)
     if r["status"] == "complete":
         r["status"] = "pass" if r["observations"] == EXPECTED[test] else "fail"
     return r
@@ -40,14 +42,16 @@ def patch_text(path, original, candidate):
     )
 
 
-def audit(test, original, candidate, before=None):
+def audit(test, original, candidate, before=None, progress_callback=None):
     item = sandbox.OWNED[test]
     if original != sandbox.owned_bytes(test, "before") or candidate != sandbox.owned_bytes(
         test, "after"
     ):
         raise ValueError("Outside reviewed fixture adapter")
-    before = before or observe(test, original)
-    after = observe(test, candidate)
+    before = before or observe(test, original, progress_callback)
+    if progress_callback:
+        progress_callback(f"[sandbox] Checking template repair candidate ({test})...")
+    after = observe(test, candidate, progress_callback)
     verified = before["status"] == "fail" and after["status"] == "pass"
     static = {}
     if test == "advisory":
@@ -59,6 +63,11 @@ def audit(test, original, candidate, before=None):
         }
         verified = verified and bool(static["original_ranges"]) and not static["candidate_ranges"]
     patch = patch_text(item["path"], original, candidate)
+    elapsed = before["duration_ms"] + after["duration_ms"]
+    if progress_callback:
+        progress_callback(f"[sandbox] BEFORE: {before['status'].upper()} | AFTER: {after['status'].upper()} — {item['property']}")
+        if verified:
+            sandbox.report_verified_patch(progress_callback, item["property"], elapsed)
     return dict(
         static_evidence=static,
         test_id=test,
@@ -77,5 +86,5 @@ def audit(test, original, candidate, before=None):
         patch_sha256=digest(patch.encode()),
         before=before,
         after=after,
-        elapsed_ms=before["duration_ms"] + after["duration_ms"],
+        elapsed_ms=elapsed,
     )

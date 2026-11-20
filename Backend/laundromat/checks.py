@@ -84,17 +84,19 @@ def scan(source: Path):
         return {"status": "incomplete", "reason": str(exc)}
 
 
-def observations(source, test_id, runtime=None):
+def observations(source, test_id, runtime=None, progress_callback=None):
     from . import sandbox
 
     data = (source / SEARCH).read_bytes()
     mode = runtime or os.getenv("LAUNDROMAT_RUNTIME", "strict")
-    return sandbox.run(sandbox.request(test_id, data), data, mode)
+    if progress_callback:
+        progress_callback(f"[sandbox] Running behavioral test: {test_id}...")
+    return sandbox.run(sandbox.request(test_id, data), data, mode, progress_callback)
 
 
-def binding(source, cases, runtime=None):
+def binding(source, cases, runtime=None, progress_callback=None):
     try:
-        attempt = observations(source, "binding", runtime)
+        attempt = observations(source, "binding", runtime, progress_callback)
         if attempt["status"] != "complete":
             return {**attempt, "status": "incomplete"}
         rows = attempt["observations"]
@@ -117,9 +119,9 @@ def binding(source, cases, runtime=None):
         return {"status": "incomplete", "reason": str(exc)}
 
 
-def behavior(source, cases, runtime=None):
+def behavior(source, cases, runtime=None, progress_callback=None):
     try:
-        attempt = observations(source, "sqlite", runtime)
+        attempt = observations(source, "sqlite", runtime, progress_callback)
         if attempt["status"] != "complete":
             return {**attempt, "status": "incomplete"}
         rows = attempt["observations"]
@@ -143,10 +145,10 @@ def behavior(source, cases, runtime=None):
         return {"status": "incomplete", "reason": str(exc)}
 
 
-def check(source, runtime=None):
+def check(source, runtime=None, progress_callback=None):
     cases = json.loads((FIXTURE / "cases.json").read_text())
     return {
         "semgrep": scan(source),
-        "binding": binding(source, cases, runtime),
-        "sqlite": behavior(source, cases, runtime),
+        "binding": binding(source, cases, runtime, progress_callback),
+        "sqlite": behavior(source, cases, runtime, progress_callback),
     }

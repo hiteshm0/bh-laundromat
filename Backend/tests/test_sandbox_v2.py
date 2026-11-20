@@ -5,7 +5,7 @@ from laundromat import sandbox
 
 
 class Sandbox(unittest.TestCase):
-    def attempt(self, fault=None):
+    def attempt(self, fault=None, progress_callback=None):
         seen = []
 
         def docker(args, timeout, env=None):
@@ -25,7 +25,7 @@ class Sandbox(unittest.TestCase):
             }[op]
 
         with patch.object(sandbox, "command", side_effect=docker):
-            r = sandbox.run(sandbox.request("calibration"))
+            r = sandbox.run(sandbox.request("calibration"), progress_callback=progress_callback)
         return r, seen
 
     def test_success_and_isolation(self):
@@ -59,6 +59,17 @@ class Sandbox(unittest.TestCase):
     def test_failed_teardown(self):
         r, _ = self.attempt("rm")
         self.assertEqual((r["status"], r["cleanup_status"]), ("incomplete", "unconfirmed"))
+
+    def test_progress_reports_the_final_cleanup_outcome(self):
+        messages = []
+        r, _ = self.attempt(progress_callback=messages.append)
+        self.assertIn("Spinning up isolated container", messages[0])
+        self.assertIn("Container finished", messages[1])
+        self.assertIn(f"Observations collected ({r['duration_ms']}ms)", messages[-1])
+        messages.clear()
+        self.attempt("rm", messages.append)
+        self.assertIn("Verifier error", messages[-1])
+        self.assertFalse(any("Observations collected" in message for message in messages))
 
     def test_suite_input_and_allowlist(self):
         for changes in (
