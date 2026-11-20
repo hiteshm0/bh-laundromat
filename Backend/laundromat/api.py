@@ -96,3 +96,17 @@ def dashboard(sid: str = ""):
     if not (dist / "index.html").exists():
         raise HTTPException(503, "Build the frontend with npm run build")
     return FileResponse(dist / "index.html")
+
+
+@app.get("/dashboard")
+def dashboard_page():
+    if not (dist / "index.html").exists():
+        raise HTTPException(503, "Build the frontend with npm run build")
+    return FileResponse(dist / "index.html")
+
+
+@app.get("/image.png")
+def image():
+    return FileResponse(
+        Path("/media/rajath-r-prasad/OS1/projects/hackathon/laundromat/public/image.png")
+    )
