@@ -40,9 +40,9 @@ class Submission(BaseModel):
 @app.post("/scans", status_code=202)
 def submit(body: Submission):
     repo = str(Path(body.repository).resolve())
+    # Auto-register the repository so callers don't need a separate CLI step
     with history.database() as db:
-        if not db.execute("SELECT 1 FROM repositories WHERE path=?", (repo,)).fetchone():
-            raise HTTPException(403, "Register the local repository with the CLI first")
+        db.execute("INSERT OR IGNORE INTO repositories VALUES(?)", (repo,))
     try:
         return {"id": service.enqueue(repo, body.scope, body.idempotency_key, "API snapshot")}
     except history.Conflict as exc:
@@ -107,6 +107,11 @@ def dashboard_page():
 
 @app.get("/image.png")
 def image():
-    return FileResponse(
-        Path("/media/rajath-r-prasad/OS1/projects/hackathon/laundromat/Frontend/public/image.png")
-    )
+    candidates = [
+        Path(__file__).parent.parent.parent / "Frontend" / "public" / "image.png",
+        ASSETS / "image.png",
+    ]
+    for p in candidates:
+        if p.exists():
+            return FileResponse(p)
+    raise HTTPException(404, "image.png not found")

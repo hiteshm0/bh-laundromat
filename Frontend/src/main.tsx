@@ -100,6 +100,7 @@ type Detail = Summary & {
   task_status?: string;
   elapsed_ms?: number;
   task_to_verdict_ms?: number;
+  cli_log?: string;
   push_decision?: { action: string; reason: string };
   dependency_changes?: {
     package: string;
@@ -722,6 +723,21 @@ function App() {
                         </p>
                       </article>
                     ))}
+                  </section>
+                )}
+                {detail.cli_log && (
+                  <section className="cli-log-section">
+                    <h2>CLI Output</h2>
+                    <div className="terminal">
+                      <div className="terminal-bar">
+                        <span className="terminal-dot" />
+                        <span className="terminal-dot r" />
+                        <span className="terminal-dot y" />
+                        <span className="terminal-dot g" />
+                        <span className="terminal-title">laundromat · scan log</span>
+                      </div>
+                      <pre className="cli-log-pre">{detail.cli_log}</pre>
+                    </div>
                   </section>
                 )}
                 {detail.issues?.map((x) => (

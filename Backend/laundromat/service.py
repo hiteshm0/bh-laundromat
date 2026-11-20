@@ -1,10 +1,43 @@
-import fcntl
 import json
 import os
 import time
 
+try:
+    import fcntl as _fcntl
+
+    def _flock(lock):
+        _fcntl.flock(lock, _fcntl.LOCK_EX)
+
+except ImportError:  # Windows
+    def _flock(lock):
+        pass  # skip advisory file locking on Windows
+
 from . import history
 from .snapshot import snapshot, git
+
+
+def format_cli_summary(result, logs):
+    """Build a concise CLI-style log string to surface in the dashboard terminal."""
+    lines = list(logs)  # progress lines captured during the scan
+    lines.append("")
+    lines.append("\u2500" * 50)
+    findings = result.get("findings", [])
+    if findings:
+        lines.append(f"\u26a0  {len(findings)} finding(s) detected:")
+        for f in findings:
+            sev = "Critical" if f.get("severity") == "P1" else f.get("severity", "?")
+            loc = f.get("path", "?") + (f":{f['line']}" if f.get("line") else "")
+            lines.append(f"  [{sev}] {f.get('category','?')} \u00b7 {loc}")
+            expl = f.get("explanation", "")
+            if expl:
+                lines.append(f"           {expl[:120]}")
+    else:
+        lines.append("\u2713  No findings \u2014 scan clean")
+    elapsed = result.get("elapsed_ms")
+    status = result.get("status", "unknown")
+    if elapsed is not None:
+        lines.append(f"\nCompleted in {elapsed} ms \u00b7 status: {status}")
+    return "\n".join(lines)
 
 
 def enqueue(repo, scope=None, key=None, trigger="local snapshot", model=False, category=None):
@@ -64,7 +97,7 @@ def work(sid=None, progress_callback=None):
 
     history.home().mkdir(mode=0o700, parents=True, exist_ok=True)
     with (history.home() / "worker.lock").open("a") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+        _flock(lock)
         with history.database() as db:
             recover(db)
             row = db.execute(
@@ -79,6 +112,13 @@ def work(sid=None, progress_callback=None):
             history.event(db, sid, "running")
         req = history.detail(sid)
         start = time.time()
+        logs: list[str] = []
+
+        def _capture(msg):
+            logs.append(str(msg))
+            if progress_callback:
+                progress_callback(msg)
+
         try:
             current, files = snapshot(
                 req["snapshot"]["repository"], list(req["snapshot"]["files"]), allow_absent=True
@@ -107,10 +147,10 @@ def work(sid=None, progress_callback=None):
                     selected,
                     before_files=base,
                     context_files=files,
-                    progress_callback=progress_callback,
+                    progress_callback=_capture,
                 )
             else:
-                result = inspect(req, selected, progress_callback=progress_callback)
+                result = inspect(req, selected, progress_callback=_capture)
         except Exception as exc:
             result = dict(
                 status="incomplete",
@@ -121,5 +161,6 @@ def work(sid=None, progress_callback=None):
         result["elapsed_ms"] = round((time.time() - start) * 1000)
         if "task_finished" in req:
             result["task_to_verdict_ms"] = round((time.time() - req["task_finished"]) * 1000)
+        result["cli_log"] = format_cli_summary(result, logs)
         history.finish(sid, result)
         return sid

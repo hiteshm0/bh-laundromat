@@ -273,3 +273,22 @@ article strong { margin-left: 8px; }
   th, td { padding: 8px; }
   .title { gap: 8px; }
 }
+
+/* CLI log terminal panel (scan detail page) */
+.cli-log-section .terminal {
+  margin-top: 0.5rem;
+}
+.cli-log-pre {
+  background: #0d1117;
+  color: #c9d1d9;
+  font-family: "JetBrains Mono", "Fira Mono", "Consolas", monospace;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  padding: 1rem 1.25rem;
+  border-radius: 0 0 6px 6px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 420px;
+  overflow-y: auto;
+}
