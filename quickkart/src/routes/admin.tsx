@@ -1,0 +1,10 @@
+import { createFileRoute } from '@tanstack/react-router';
+import { useEffect, useState } from 'react';
+import { useStore } from '@/lib/store';
+import { pageHead } from '@/lib/metadata';
+import { rupees, type User, type Order } from '@/lib/catalog';
+import { Button } from '@/components/ui/button';
+export const Route = createFileRoute('/admin')({ head: () => pageHead('Store administration', 'View QuickKart customers and store orders.'), component: Admin });
+function Admin() { const { request, user, local } = useStore(); const [customers, setCustomers] = useState<User[]>([]); const [orders, setOrders] = useState<Order[]>([]); const [error, setError] = useState(''); const [tab, setTab] = useState('users');
+ useEffect(() => { request<User[]>('/admin/users').then(setCustomers).catch(e => setError(e.message)); request<Order[]>('/admin/orders').then(data => { setOrders(data); setError(''); }).catch(e => setError(e.message)); }, [user, local]);
+ return <main className="page-main"><span className="eyebrow">QUICKKART / STORE MANAGEMENT</span><h1>Store overview</h1><div className="admin-tabs"><Button variant={tab === 'users' ? 'default' : 'outline'} onClick={() => setTab('users')}>Customers ({customers.length})</Button><Button variant={tab === 'orders' ? 'default' : 'outline'} onClick={() => setTab('orders')}>Orders ({orders.length})</Button></div><div className="table-scroll">{tab === 'users' ? <table><thead><tr><th>ID</th><th>Name</th><th>Phone</th><th>Address</th><th>PAN</th><th>Role</th></tr></thead><tbody>{customers.map(u => <tr key={u.id}><td>{u.id}</td><td>{u.name}</td><td>{u.phone}</td><td>{u.address}</td><td>{u.pan}</td><td>{u.role}</td></tr>)}</tbody></table> : <>{error && <p role="alert" className="error-text">{error}</p>}<table><thead><tr><th>Order</th><th>Customer</th><th>Total</th><th>Status</th><th>Date</th></tr></thead><tbody>{orders.map(o => <tr key={o.id}><td>#{o.id}</td><td>{customers.find(u => u.id === o.user_id)?.name ?? o.user_id}</td><td>{rupees(o.total)}</td><td>{o.status}</td><td>{o.created_at.slice(0, 10)}</td></tr>)}</tbody></table></>}</div></main>; }

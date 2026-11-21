@@ -1,0 +1,41 @@
+require('dotenv').config({ path: require('node:path').join(__dirname, '../.env'), quiet: true });
+const { test, before, after } = require('node:test');
+const assert = require('node:assert/strict');
+const { createDatabase } = require('../db');
+const { createApp } = require('../app');
+const jwt = require('jsonwebtoken');
+let db, server, base;
+let student, admin;
+before(async () => {
+ db = createDatabase(':memory:');
+ server = createApp(db).listen(0, '127.0.0.1');
+ await new Promise(resolve => server.on('listening', resolve));
+ base = `http://127.0.0.1:${server.address().port}/api`;
+ student = jwt.sign({ id: 1, role: 'student' }, process.env.JWT_SECRET, { expiresIn: '1h' });
+ admin = jwt.sign({ id: 5, role: 'admin' }, process.env.JWT_SECRET, { expiresIn: '1h' });
+});
+after(() => { server.close(); db.close(); });
+async function request(path, token, body) {
+ const res = await fetch(base + path, { method: body === undefined ? 'GET' : 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+ return { status: res.status, data: await res.json() };
+}
+test('store case 01', () => { assert.equal(db.prepare('SELECT COUNT(*) AS n FROM users').get().n, 5); assert.equal(db.prepare('SELECT COUNT(*) AS n FROM orders').get().n, 5); });
+test('store case 02', async () => { const result = await request('/search?q=' + encodeURIComponent("zzzz' OR 1=1 --")); assert.equal(result.data.length, 6); });
+test('store case 03', async () => { const result = await request('/safe/search?q=' + encodeURIComponent("zzzz' OR 1=1 --")); assert.equal(result.data.length, 0); });
+test('store case 04', async () => { const r = await request('/admin/users'); assert.equal(r.status, 200); assert.equal(r.data.length, 5); });
+test('store case 05', async () => { assert.equal((await request('/safe/admin/users')).status, 401); });
+test('store case 06', async () => { assert.equal((await request('/safe/admin/users', student)).status, 403); assert.equal((await request('/safe/admin/users', admin)).status, 200); });
+test('store case 07', async () => { assert.equal((await request('/orders/1002')).status, 401); });
+test('store case 08', async () => { const r = await request('/orders/1002', student); assert.equal(r.status, 200); assert.equal(r.data.user_id, 2); });
+test('store case 09', async () => { assert.equal((await request('/safe/orders/1002', student)).status, 404); assert.equal((await request('/safe/orders/1001', student)).status, 200); });
+test('store case 10', async () => { for (let i = 0; i < 5; i++) { const r = await request('/auth/send-otp', null, { phone: '9000000001' }); assert.equal(r.status, 200); assert.match(r.data.otp, /^\d{6}$/); } });
+test('store case 11', async () => { for (let i = 0; i < 3; i++) { const r = await request('/safe/auth/send-otp', null, { phone: '9000000001' }); assert.equal(r.status, 200); assert.equal('otp' in r.data, false); } assert.equal((await request('/safe/auth/send-otp', null, { phone: '9000000001' })).status, 429); });
+test('store case 12', async () => { const sent = await request('/auth/send-otp', null, { phone: '9000000002' }); const verified = await request('/auth/verify-otp', null, { phone: '9000000002', otp: sent.data.otp }); assert.equal(jwt.verify(verified.data.token, process.env.JWT_SECRET).id, 2); assert.equal((await request('/auth/verify-otp', null, { phone: '9000000002', otp: sent.data.otp })).status, 400); });
+test('store case 13', async () => { const body = { name: 'Aarav Sharma', address: 'Sample Hostel', pan: 'FAKEPAN009' }; await request('/profile', student, body); assert.equal(db.prepare('SELECT pan FROM users WHERE id = 1').get().pan, 'FAKEPAN009'); });
+test('store case 14', async () => { const original = console.log; let recorded; console.log = value => { recorded = value; }; const body = { name: 'Aarav Sharma', address: 'Sample Hostel', pan: 'FAKEPAN008' }; try { await request('/profile', student, body); assert.deepEqual(recorded, body); } finally { console.log = original; } });
+test('store case 15', async () => { const r = await request('/checkout', student, { items: [{ productId: 1, quantity: 1 }], paymentSuccess: true, total: 1 }); assert.equal(r.data.status, 'Paid'); assert.equal(r.data.total, 899); });
+test('store case 16', async () => { const r = await request('/safe/checkout', student, { items: [{ productId: 1, quantity: 1 }], paymentSuccess: true }); assert.equal(r.data.status, 'Pending payment'); });
+test('store case 17', async () => { const created = await request('/safe/checkout', student, { items: [{ productId: 1, quantity: 1 }] }); const id = created.data.id; assert.equal((await request('/safe/checkout', student, { orderId: id, paymentId: 'fake', signature: 'a'.repeat(64) })).status, 400); const receipt = await request('/safe/payments/confirm', student, { orderId: id }); assert.equal((await request('/safe/checkout', student, { orderId: id, ...receipt.data })).data.status, 'Paid'); });
+test('store case 18', () => { const { query, recordId } = require('../nearmiss/catalog'); const rows = db.prepare(query).all(); assert.equal(rows.length, 1); assert.equal(rows[0].category, 'Stationery'); assert.match(recordId, /^[0-9a-f-]{36}$/); });
+test('store case 19', async () => { const r = await fetch(base + '/health', { headers: { Origin: 'https://example.com' } }); assert.equal(r.status, 403); });
+test('store case 20', () => { const p = require('../package.json'); assert.equal(p.dependencies.lodash, '4.17.15'); assert.equal(p.dependencies.jsonwebtoken, '8.5.1'); assert.equal(p.dependencies.express, '4.16.0'); assert.equal(p.dependencies.moment, '2.19.3'); });

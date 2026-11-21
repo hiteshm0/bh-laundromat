@@ -1,0 +1,64 @@
+{
+  "source": "server/search-products.cjs",
+  "export": "searchProducts",
+  "table": "products",
+  "columns": {
+    "id": "INTEGER",
+    "name": "TEXT",
+    "category": "TEXT",
+    "price": "INTEGER",
+    "original_price": "INTEGER",
+    "rating": "REAL",
+    "image": "TEXT"
+  },
+  "projection": [
+    "*"
+  ],
+  "filter_by": "name",
+  "match": "contains",
+  "order_by": "id",
+  "rows": [
+    {
+      "id": 4,
+      "name": "Late Night Study Lamp",
+      "category": "Room Essentials",
+      "price": 699,
+      "original_price": 999,
+      "rating": 4.6,
+      "image": "lamp"
+    },
+    {
+      "id": 3,
+      "name": "The Study Club Notebook Set",
+      "category": "Stationery",
+      "price": 249,
+      "original_price": 399,
+      "rating": 4.9,
+      "image": "notebooks"
+    },
+    {
+      "id": 1,
+      "name": "Everyday Campus Backpack",
+      "category": "Bags & Accessories",
+      "price": 899,
+      "original_price": 1299,
+      "rating": 4.8,
+      "image": "backpack"
+    },
+    {
+      "id": 5,
+      "name": "Everyday Steel Bottle",
+      "category": "Bags & Accessories",
+      "price": 449,
+      "original_price": 699,
+      "rating": 4.8,
+      "image": "bottle"
+    }
+  ],
+  "regression_terms": [
+    "study",
+    "backpack",
+    "no match",
+    ""
+  ]
+}

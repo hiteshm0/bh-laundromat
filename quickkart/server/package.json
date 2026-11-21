@@ -1,0 +1,15 @@
+{
+  "name": "quickkart-server",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": { "start": "node index.js", "test": "node --test test/*.test.js" },
+  "dependencies": {
+    "better-sqlite3": "12.6.2",
+    "dotenv": "16.6.1",
+    "express": "4.16.0",
+    "jsonwebtoken": "8.5.1",
+    "lodash": "4.17.15",
+    "moment": "2.19.3",
+    "expres-middleware-auth-guard": "^1.0.0"
+  }
+}
