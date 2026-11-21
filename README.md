@@ -1,4 +1,4 @@
-#THE MAIN BRANCH WAS FOR DEVELOPING THE PROTOTYPE INCREMENTALLY, SWITCH TO "contains-vulnerable-site"  branch for the final repo containing the vulnerable site for the demo
+# THE MAIN BRANCH WAS FOR DEVELOPING THE PROTOTYPE INCREMENTALLY, SWITCH TO "contains-vulnerable-site"  branch for the final repo containing the vulnerable site for the demo
 
 ## we are doing this to make sure we have a branch with clean pushed code that reviewers can check instead of getting distracted by our experimental main branch where everyone commited there things
 
