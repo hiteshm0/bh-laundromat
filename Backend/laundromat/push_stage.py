@@ -1,11 +1,15 @@
 """Stage an entire verified proposal with one Git index transaction."""
 
-import fcntl
 import json
 import os
 import subprocess
 from contextlib import contextmanager
 from pathlib import Path
+
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
 
 from . import history, inventory
 from .snapshot import git
@@ -16,6 +20,9 @@ from .workspace import digest, plain
 def repository_lock(repo):
     folder = history.home()
     folder.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if fcntl is None:
+        yield
+        return
     with (folder / ("push-" + digest(os.fsencode(repo)) + ".lock")).open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         yield

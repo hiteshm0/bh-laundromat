@@ -70,8 +70,11 @@ class Rehearsal:
         self.commit("Initial inventory service")
 
     def run(self, *args, check=True):
+        cmd = list(args)
+        if cmd and cmd[0] == "laundromat":
+            cmd = [sys.executable, "-m", "laundromat", *cmd[1:]]
         return subprocess.run(
-            args,
+            cmd,
             cwd=self.repo,
             env=self.env,
             capture_output=True,

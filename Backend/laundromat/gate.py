@@ -29,13 +29,10 @@ def install(repo):
         raise ValueError("Custom symlinked hooks directory preserved")
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / "pre-push"
-    cli = Path(sys.executable).parent / "laundromat"
+    py = Path(sys.executable).as_posix()
     script = (
-        '#!/bin/sh\nexport PATH="$PATH":'
-        + shlex.quote(str(cli.parent))
-        + "\n"
-        + shlex.quote(str(cli))
-        + ' gate --repo . --remote "$2" || exit 1\n'
+        '#!/bin/sh\n'
+        f'"{py}" -m laundromat gate --repo . --remote "$2" || exit 1\n'
     )
     if path.is_symlink() or (path.exists() and path.read_text() != script):
         raise ValueError(

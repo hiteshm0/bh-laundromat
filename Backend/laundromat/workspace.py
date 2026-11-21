@@ -1,6 +1,5 @@
 """Storage shared by the CLI commands, scoped to this editable checkout."""
 
-import fcntl
 import hashlib
 import json
 import os
@@ -8,6 +7,11 @@ import shutil
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
+
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
 
 ASSETS = Path(__file__).resolve().parent / "assets"
 FIXTURE = ASSETS / "demo"
@@ -61,6 +65,9 @@ def directory(path: Path) -> Path:
 def workspace_lock():
     # A directory lock survives reset and serializes CLI writers without a lock file.
     STATE.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if fcntl is None:
+        yield
+        return
     fd = os.open(STATE, os.O_RDONLY)
     try:
         fcntl.flock(fd, fcntl.LOCK_EX)
