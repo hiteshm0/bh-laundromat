@@ -191,29 +191,37 @@ def main():
             time.sleep(0.3)
             p.advance(task)
 
-    # Detailed Comparison Table
+    # Detailed Comparison Table with full text wrapping and expanded layout
     table = Table(
         title="Side-by-Side Test Case Results",
-        border_style="#444466",
+        border_style="#555577",
         show_lines=True,
         header_style="bold white on #1a1a2e",
+        expand=True,
     )
-    table.add_column("Security Scenario", style="bold white", width=22)
-    table.add_column("Single-Pass LLM (Arm B)", style="yellow", width=42)
-    table.add_column("Laundromat Multi-Agent (Arm Split)", style="green", width=48)
+    table.add_column("Security Scenario & Target", style="bold white", ratio=22, overflow="fold")
+    table.add_column("Single-Pass LLM Baseline (Arm B)", style="yellow", ratio=38, overflow="fold")
+    table.add_column("Laundromat Multi-Agent + Sandbox (Arm Split)", style="green", ratio=40, overflow="fold")
 
     for b in BENCHMARKS:
+        scenario_text = (
+            f"[bold cyan]{b['name']}[/bold cyan]\n"
+            f"[dim]Target: {b['target']}[/dim]"
+        )
         base_text = (
-            f"[bold]{b['baseline']['verdict']}[/bold]\n"
-            f"[dim]Patch:[/dim] {b['baseline']['patch_status']}\n"
-            f"[dim]Runtime Proof:[/dim] {b['baseline']['runtime_proof']}"
+            f"[bold]{b['baseline']['verdict']}[/bold]\n\n"
+            f"[bold white]Finding:[/bold white] {b['baseline']['findings']}\n\n"
+            f"[bold white]Patch:[/bold white] {b['baseline']['patch_status']}\n\n"
+            f"[bold white]Runtime Proof:[/bold white] [red]{b['baseline']['runtime_proof']}[/red]"
         )
         laund_text = (
-            f"[bold]{b['laundromat']['verdict']}[/bold]\n"
-            f"[dim]Exploit Proved:[/dim] {b['laundromat']['exploit_detail']}\n"
-            f"[dim]Fix Verified:[/dim] {b['laundromat']['patch_status']}"
+            f"[bold]{b['laundromat']['verdict']}[/bold]\n\n"
+            f"[bold white]Finding:[/bold white] {b['laundromat']['findings']}\n\n"
+            f"[bold white]Sandbox Exploit:[/bold white] [bold red]{b['laundromat']['exploit_detail']}[/bold red]\n\n"
+            f"[bold white]Verified Fix:[/bold white] {b['laundromat']['patch_status']}\n\n"
+            f"[bold white]Runtime Proof:[/bold white] [bold green]{b['laundromat']['runtime_proof']}[/bold green]"
         )
-        table.add_row(b["name"], base_text, laund_text)
+        table.add_row(scenario_text, base_text, laund_text)
 
     console.print(table)
     console.print()
@@ -223,10 +231,10 @@ def main():
     console.print(Rule("[bold green] BENCHMARK SCORECARD SUMMARY [/bold green]", style="green"))
     console.print()
 
-    scorecard = Table(border_style="green", header_style="bold white on #003300", show_lines=True)
-    scorecard.add_column("Metric", style="bold white", width=30)
-    scorecard.add_column("Single-Pass LLM Baseline", style="bold red", justify="center", width=26)
-    scorecard.add_column("Laundromat Multi-Agent + Sandbox", style="bold green", justify="center", width=32)
+    scorecard = Table(border_style="green", header_style="bold white on #003300", show_lines=True, expand=True)
+    scorecard.add_column("Evaluation Metric", style="bold white", ratio=36, overflow="fold")
+    scorecard.add_column("Single-Pass LLM Baseline", style="bold red", justify="center", ratio=28, overflow="fold")
+    scorecard.add_column("Laundromat Multi-Agent + Sandbox", style="bold green", justify="center", ratio=36, overflow="fold")
 
     scorecard.add_row("Empirical Exploit Confirmation", "0 / 5 (0%)", "5 / 5 (100% Executed)")
     scorecard.add_row("Verified Working Patches", "1 / 5 (20%)", "5 / 5 (100% Verified)")
