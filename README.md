@@ -1,4 +1,8 @@
-# Laundromat
+#THE MAIN BRANCH WAS FOR DEVELOPING THE PROTOTYPE INCREMENTALLY, SWITCH TO "contains-vulnerable-site"  branch for the final repo containing the vulnerable site for the demo
+
+## we are doing this to make sure we have a branch with clean pushed code that reviewers can check instead of getting distracted by our experimental main branch where everyone commited there things
+
+### Laundromat
 
 Laundromat reviews a proposed change, a local snapshot, or the outgoing objects in a Git push. The CLI and local dashboard distinguish static candidates, observed fixture properties, repair application, and push policy. The pre-push graph supports one runtime repair contract for a Node/SQLite inventory service. Snapshot reviews retain their existing fixture adapters.
 
