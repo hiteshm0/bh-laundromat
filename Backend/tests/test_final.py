@@ -7,13 +7,16 @@ import sys
 import tempfile
 import time
 import unittest
+from contextlib import chdir
 from pathlib import Path
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
+from typer.testing import CliRunner
 
 from laundromat import detect, gate, history, pipeline, provider, repair, service
 from laundromat.api import app
+from laundromat.cli import app as cli_app
 from laundromat.snapshot import snapshot, delta
 from laundromat.workspace import FIXTURE, ROOT
 
@@ -82,6 +85,69 @@ class LocalReview(unittest.TestCase):
             self.assertEqual(
                 db.execute("SELECT count(*) FROM jobs WHERE scan=?", (sid,)).fetchone()[0], 1
             )
+
+    def test_snapshot_advisory_reviews_scoped_source_and_skips_credentials(self):
+        (self.repo / "app.py").write_text("# Module\n" * 21 + "count = 1\n")
+        (self.repo / "private.py").write_text('token = "LMTEST_' + "A" * 24 + '"\n')
+        runner = CliRunner()
+        args = ["scan", str(self.repo), "--path", "app.py", "--path", "private.py", "--json"]
+        answer = {"findings": [{
+            "anchor": "A22",
+            "title": "Review constant",
+            "explanation": "This value is fixed.",
+            "recommendation": "Use the configured value.",
+        }]}
+        response = {
+            "status": "completed",
+            "model": "snapshot-review-test",
+            "output": [{"content": [{"type": "output_text", "text": json.dumps(answer)}]}],
+        }
+        with (
+            patch.dict(os.environ, {
+                "LAUNDROMAT_PROVIDER": "openai",
+                "OPENAI_API_KEY": "local-mock-placeholder",
+                "LAUNDROMAT_MODEL": "snapshot-review-test",
+            }),
+            patch("urllib.request.urlopen", return_value=io.BytesIO(json.dumps(response).encode())) as call,
+        ):
+            completed = runner.invoke(cli_app, args)
+            self.assertEqual(completed.exit_code, 0, completed.output)
+            scan = json.loads(completed.output)
+            review = scan["llm_review"]
+            self.assertEqual(scan["status"], "findings")
+            self.assertEqual((review["status"], review["omitted_files"]), ("partial", 1))
+            finding, = review["findings"]
+            self.assertEqual((finding["path"], finding["line"]), ("app.py", 22))
+            self.assertEqual(finding["revision"], scan["snapshot"]["sha256"])
+            call.assert_called_once()
+            body = json.loads(call.call_args.args[0].data)
+            artifact = json.loads(body["input"])
+            self.assertEqual(review["model_call"]["prompt_version"], "snapshot-advisory-v1")
+            self.assertEqual({change["path"] for change in artifact["changes"]}, {"app.py"})
+            self.assertIn("+ [A22] count = 1", artifact["changes"][1]["diff"])
+            self.assertEqual(call.call_args.kwargs["timeout"], 12)
+            call.reset_mock()
+            local = runner.invoke(cli_app, args + ["--no-review"])
+            self.assertEqual(local.exit_code, 0, local.output)
+            self.assertNotIn("llm_review", json.loads(local.output))
+            call.assert_not_called()
+
+    def test_snapshot_advisory_provider_failure_is_advisory(self):
+        runner = CliRunner()
+        source = self.base / "source"
+        source.mkdir()
+        with (
+            chdir(source),
+            patch.object(provider, "configuration", return_value=("mocked", "", "", "mock")),
+            patch.object(provider, "role", side_effect=TimeoutError) as call,
+        ):
+            Path("app.py").write_text("count = 1\n")
+            completed = runner.invoke(cli_app, ["scan", ".", "--json"])
+        self.assertEqual(completed.exit_code, 0, completed.output)
+        scan = json.loads(completed.output)
+        self.assertEqual(scan["status"], "clean")
+        self.assertEqual(scan["llm_review"]["status"], "unavailable")
+        call.assert_called_once()
 
     def test_worker_crash_retry_and_snapshot_drift(self):
         sid = service.enqueue(self.repo, ["search.js"])

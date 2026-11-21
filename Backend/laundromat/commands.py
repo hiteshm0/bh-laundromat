@@ -4,6 +4,7 @@ import sys
 import time
 from contextlib import contextmanager, nullcontext
 from pathlib import Path
+from uuid import uuid4
 
 import typer
 from rich.console import Console
@@ -135,6 +136,20 @@ def output(value, machine, *, compact=False):
                 typer.echo(item["working_tree_issue"])
             if item.get("patch"):
                 print_diff(Console(), item["patch"])
+        if review := value.get("llm_review"):
+            typer.echo(f"LLM code review · {review['status']} · advisory")
+            if review.get("reason"):
+                typer.echo("  " + review["reason"])
+            if review["omitted_files"]:
+                typer.echo(f"  {review['omitted_files']} files partly or fully omitted")
+            for finding in review["findings"]:
+                location = f"{finding['path']}:{finding['line']}"
+                if finding["end_line"] != finding["line"]:
+                    location += f"-{finding['end_line']}"
+                if finding["side"] == "before":
+                    location += " (before change)"
+                typer.echo(f"  {location} · {finding['title']}")
+                typer.echo(f"    {finding['explanation']} {finding['recommendation']}")
         if value.get("staging_issue"):
             typer.echo(value["staging_issue"])
         states = {r["state"] for r in value.get("push_reviews", [])}
@@ -195,17 +210,22 @@ def register_commands(app):
         key: str = typer.Option(None, "--key"),
         prepared: bool = False,
         model: bool = False,
+        review: bool = typer.Option(
+            True, "--review/--no-review", help="Run advisory LLM code review on the snapshot."
+        ),
         json_mode: bool = typer.Option(False, "--json"),
     ):
         """Scan local files synchronously and record the exact snapshot."""
         with errors(json_mode):
             with review_spinner(json_mode) as status:
+                advisory_review = review and not prepared
                 sid = service.enqueue(
                     repo,
                     scope or None,
-                    key,
+                    key or (uuid4().hex if advisory_review else None),
                     "prepared snapshot" if prepared else "local snapshot",
                     model,
+                    advisory_review=advisory_review,
                 )
                 service.work(sid, phase_callback=status.update if status else None)
                 result = history.detail(sid)

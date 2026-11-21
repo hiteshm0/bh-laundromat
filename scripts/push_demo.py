@@ -169,6 +169,7 @@ def print_summary(console, demo, receipt, stage, elapsed):
 
     review = next(item for item in receipt["push_reviews"] if item.get("verified"))
     console.print(f"Push blocked · Fix verified in {elapsed:.1f}s", style="bold yellow")
+    console.print(f"Receipt · {receipt['id']}", style="dim")
     console.print(f"SQL injection risk in {review['path']}:{review['detect']['line']}", style="bold")
     console.print("The fix passes the aisle value separately from the SQL text.")
     console.print()
@@ -237,6 +238,7 @@ def main():
         help="Use the labelled test transport with real Git, scanners and Docker",
     )
     parser.add_argument("--dashboard", action="store_true", help="Open this run's dashboard in a browser")
+    parser.add_argument("--ledger", type=Path, help="Write receipts to this shared dashboard directory")
     options = parser.parse_args()
     console = Console(highlight=False, markup=False)
     progress_console = Console(stderr=True, highlight=False, markup=False)
@@ -264,7 +266,8 @@ def main():
 
             report("prepare")
             folder = Path(tempfile.mkdtemp(prefix="laundromat-push-"))
-            env = dict(os.environ, LAUNDROMAT_HOME=str(folder / "ledger"))
+            ledger = options.ledger.expanduser().resolve() if options.ledger else folder / "ledger"
+            env = dict(os.environ, LAUNDROMAT_HOME=str(ledger))
             if options.mock_provider:
                 transport = Path(__file__).resolve().parents[1] / "Backend/tests/push_fixtures"
                 env.update(

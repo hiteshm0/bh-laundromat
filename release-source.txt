@@ -13,6 +13,7 @@ Backend/laundromat/gate.py
 Backend/laundromat/history.py
 Backend/laundromat/install_scanner.py
 Backend/laundromat/inventory.py
+Backend/laundromat/llm_review.py
 Backend/laundromat/node_sqlite.py
 Backend/laundromat/legacy.py
 Backend/laundromat/manifests.py

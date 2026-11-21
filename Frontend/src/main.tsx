@@ -39,6 +39,13 @@ type Repair = {
   model_issue?: string;
   model_explanation?: string;
 };
+type SandboxRun = {
+  status: string;
+  duration_ms?: number;
+  cleanup_status?: string;
+  container_id?: string;
+  test_sha256?: string;
+};
 type PushEvidence = {
   finding_id: string;
   state: string;
@@ -51,9 +58,9 @@ type PushEvidence = {
   role_calls: { role: string; model?: string; outcome?: string }[];
   test?: Fields;
   test_sha256?: string;
-  before?: { status: string };
-  after?: { status: string };
-  regression?: boolean;
+  before?: SandboxRun;
+  after?: SandboxRun;
+  regression?: SandboxRun | boolean;
   rescan?: Fields;
   property?: string;
   rationale?: string;
@@ -102,6 +109,22 @@ type Detail = Summary & {
   task_to_verdict_ms?: number;
   cli_log?: string;
   push_decision?: { action: string; reason: string };
+  llm_review?: {
+    status: string;
+    reason?: string;
+    omitted_files: number;
+    findings: {
+      path: string;
+      commit: string | null;
+      revision: string;
+      side: "before" | "after";
+      line: number;
+      end_line: number;
+      title: string;
+      explanation: string;
+      recommendation: string;
+    }[];
+  };
   dependency_changes?: {
     package: string;
     previous: string;
@@ -142,6 +165,38 @@ function Data({ value }: { value: unknown }) {
   return <pre>{JSON.stringify(value, null, 2)}</pre>;
 }
 
+function SandboxEvidence({ item }: { item: PushEvidence }) {
+  const regression = typeof item.regression === "object" ? item.regression : undefined;
+  const runs = [
+    { label: "Original", run: item.before },
+    { label: "Patched", run: item.after },
+    { label: "Regression", run: regression },
+  ];
+  const before = item.before;
+  const after = item.after;
+  const sameTest = before?.test_sha256 && before.test_sha256 === after?.test_sha256
+    && before.container_id && after?.container_id && before.container_id !== after.container_id;
+  return <div className="sandbox-evidence">
+    <h3>Sandbox verification</h3>
+    {sameTest && <p>The original and patched code ran the same test in separate containers.</p>}
+    <div className="scroll">
+      <table aria-label="Sandbox verification outcomes">
+        <thead>
+          <tr><th scope="col">Run</th><th scope="col">Result</th><th scope="col">Time</th><th scope="col">Container cleanup</th></tr>
+        </thead>
+        <tbody>{runs.map(({ label, run }) =>
+          <tr key={label}>
+            <th scope="row">{label}</th>
+            <td><Badge value={run?.status ?? "—"} /></td>
+            <td>{run?.duration_ms == null ? "—" : run.duration_ms + " ms"}</td>
+            <td>{run?.cleanup_status ?? "—"}</td>
+          </tr>
+        )}</tbody>
+      </table>
+    </div>
+  </div>;
+}
+
 function PushFinding({ item }: { item: PushEvidence }) {
   return <div>
     <p><Badge value={item.state} /> {item.reason || item.property}</p>
@@ -152,7 +207,7 @@ function PushFinding({ item }: { item: PushEvidence }) {
       <p>{item.detect.property} · {item.policy_route}</p></>}
     {item.test && <><h3>Prove</h3><details><summary>Frozen test specification</summary>
       <code>{item.test_sha256}</code><Data value={item.test} /></details>
-      <p>Original · {item.before?.status || "pending"}<br/>Candidate · {item.after?.status || "pending"}</p>
+      {(item.before || item.after) && <SandboxEvidence item={item} />}
       <details><summary>Test observations</summary><Data value={{ original: item.before, candidate: item.after, regression: item.regression, rescan: item.rescan }} /></details></>}
     {item.patch && <><h3>Fix · proposed diff</h3><p>{item.rationale}</p><pre>{item.patch}</pre></>}
     {item.staged_diff && <><h3>Staged diff</h3><pre>{item.staged_diff}</pre></>}
@@ -695,6 +750,26 @@ function App() {
                   <details><summary>Severity, transitions and structural checks</summary>
                     <Data value={{ counts: detail.counts_summary, transitions: detail.transitions, structural: detail.structural_observations }} /></details>
                 </section>
+                {detail.llm_review && (
+                  <section>
+                    <h2>LLM code review</h2>
+                    <p>Advisory · {detail.llm_review.status}</p>
+                    {detail.llm_review.reason && <p>{detail.llm_review.reason}</p>}
+                    {detail.llm_review.omitted_files > 0 &&
+                      <p>{detail.llm_review.omitted_files} files partly or fully omitted.</p>}
+                    {detail.llm_review.findings.map((finding, i) => (
+                      <article key={i}>
+                        <strong>{finding.title}</strong>
+                        <p>
+                          <code>{finding.path}:{finding.line}{finding.end_line !== finding.line && "-" + finding.end_line}</code>
+                          {finding.side === "before" && " · Before change"} · {finding.revision.slice(0, 12)}
+                        </p>
+                        <p>{finding.explanation}</p>
+                        <p>{finding.recommendation}</p>
+                      </article>
+                    ))}
+                  </section>
+                )}
                 {detail.push_decision && (
                   <section>
                     <h2>Push decision</h2>

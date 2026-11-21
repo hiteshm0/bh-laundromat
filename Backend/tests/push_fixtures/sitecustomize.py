@@ -3,10 +3,14 @@
 import io
 import json
 import os
+import re
 import urllib.request
 
 if os.getenv("LAUNDROMAT_MODEL") == "mocked-push-test":
     from laundromat import provider
+
+    if os.getenv("MOCK_GROQ_GPT_OSS"):
+        os.environ["LAUNDROMAT_MODEL"] = "openai/gpt-oss-120b"
 
     original_role = provider.role
 
@@ -25,16 +29,50 @@ if os.getenv("LAUNDROMAT_MODEL") == "mocked-push-test":
         if groq:
             assert req.full_url == "https://api.groq.com/openai/v1/chat/completions"
             assert req.get_header("Authorization") == "Bearer " + os.environ["GROQ_API_KEY"]
-            assert (
-                body["response_format"] == {"type": "json_object"}
-                and body["max_completion_tokens"] == 700
-            )
             assert [m["role"] for m in body["messages"]] == ["system", "user"]
             artifact = json.loads(body["messages"][1]["content"])
+            if "changes" in artifact:
+                assert body["max_completion_tokens"] == provider.REVIEW_OUTPUT_TOKENS
+                if os.getenv("MOCK_GROQ_GPT_OSS"):
+                    assert body["response_format"]["type"] == "json_schema"
+                    contract = body["response_format"]["json_schema"]
+                    assert contract["strict"] is True
+                    anchors = contract["schema"]["$defs"]["Advisory"]["properties"]["anchor"]["enum"]
+                    labels = [
+                        label for change in artifact["changes"]
+                        for label in re.findall(r"^[+-] \[(A\d+)\]", change["diff"], re.MULTILINE)
+                    ]
+                    assert anchors == labels
+                else:
+                    assert body["response_format"] == {"type": "json_object"}
+            else:
+                assert body["response_format"] == {"type": "json_object"}
+                assert body["max_completion_tokens"] == 700
         else:
             assert req.full_url == "https://api.openai.com/v1/responses"
             artifact = json.loads(body["input"])
-        if "policy" in artifact:
+        if "changes" in artifact:
+            assert kwargs["timeout"] == 12
+            assert "UNCOMMITTED_REVIEW_MARKER" not in json.dumps(artifact)
+            assert "LMTEST_" not in json.dumps(artifact)
+            if os.getenv("MOCK_REVIEW_TIMEOUT"):
+                raise TimeoutError("Mock advisory provider timed out")
+            if os.getenv("MOCK_REVIEW_ERROR"):
+                raise RuntimeError("Mock advisory provider failed unexpectedly")
+            output = {"findings": []}
+            if os.getenv("MOCK_REVIEW_FINDING"):
+                change = next(change for change in artifact["changes"] if change["path"] == "review.js")
+                anchor = re.search(r"^\+ \[(A\d+)\] export function listStock", change["diff"], re.MULTILINE)[1]
+                assert "inventory/stock.cjs" in {code["path"] for code in artifact["related_code"]}
+                if os.getenv("MOCK_REVIEW_BAD_LOCATION"):
+                    anchor = "A999"
+                output["findings"].append(dict(
+                    anchor=anchor,
+                    title="Missing access check",
+                    explanation="The inventory handler has no access check.",
+                    recommendation="Require an authorized session before reading inventory.",
+                ))
+        elif "policy" in artifact:
             output = dict(
                 path=artifact["path"],
                 line=artifact["line"],
@@ -77,9 +115,11 @@ if os.getenv("LAUNDROMAT_MODEL") == "mocked-push-test":
         if os.getenv("MOCK_MALFORMED"):
             output = {"unrecognized": True}
         envelope = dict(model="mocked-push-test", usage={"total_tokens": 0})
+        truncated = "changes" in artifact and os.getenv("MOCK_REVIEW_TRUNCATED")
         if groq:
             envelope["choices"] = [
-                {"finish_reason": "stop", "message": {"content": json.dumps(output)}}
+                {"finish_reason": "length" if truncated else "stop",
+                 "message": {"content": json.dumps(output)}}
             ]
         else:
             envelope.update(

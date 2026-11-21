@@ -15,7 +15,7 @@ from langsmith import tracing_context
 from pydantic import Field, ValidationError
 from typing_extensions import TypedDict
 
-from . import detect, experiment, gate, history, inventory, node_sqlite, provider, push_stage
+from . import detect, experiment, gate, history, inventory, llm_review, node_sqlite, provider, push_stage
 from .snapshot import git, relative
 from .workspace import digest, json_bytes
 
@@ -545,6 +545,12 @@ class PushReview:
             graph.invoke({"finding": fid}, {"recursion_limit": 8})
         return {}
 
+    def advisory(self, state):
+        self.result["llm_review"] = llm_review.inspect(
+            self.repo, self.updates, self.commits, self.result, self.report
+        )
+        return {}
+
     def aggregate(self, state):
         result = self.result
         pending = []
@@ -652,12 +658,13 @@ def review_push(repo: Path, remote: str, lines: str, *, progress=None):
     with push_stage.repository_lock(repo), tracing_context(enabled=False):
         run = PushReview(repo, remote, lines, progress)
         graph = StateGraph(PushState)
-        for name in ("collect", "scan", "review", "aggregate", "authorize"):
+        for name in ("collect", "scan", "review", "advisory", "aggregate", "authorize"):
             graph.add_node(name, getattr(run, name))
         graph.add_edge(START, "collect")
         graph.add_edge("collect", "scan")
         graph.add_edge("scan", "review")
-        graph.add_edge("review", "aggregate")
+        graph.add_edge("review", "advisory")
+        graph.add_edge("advisory", "aggregate")
         graph.add_edge("aggregate", "authorize")
         graph.add_edge("authorize", END)
         graph.compile().invoke({"mode": run.mode}, {"recursion_limit": 8})

@@ -41,6 +41,26 @@ git diff --cached
 
 Developer is the default. Approval checks the reviewed branch, commit and affected bytes, then stages the verified hunk. To authorize automatic staging, run `laundromat switch vibe-coder`. A push with a verified repair stops in both modes. Review and commit the staged changes yourself, then push again. Overlapping edits and ambiguous ref assignments leave a proposal in the receipt. A credential in an intermediate outgoing commit still blocks after a later deletion.
 
+### Advisory LLM code review
+
+With the model provider configured, pre-push sends a bounded diff of outgoing application source,
+nearby lines, and short excerpts from directly imported local JavaScript or TypeScript modules
+to that provider. The review uses committed Git objects. Laundromat redacts known credential
+formats and excludes paths with local credential findings from the request. Secrets, dependency
+checks, push decisions, and repair authorization use the existing local workflow.
+
+With the provider configured in your shell, `laundromat scan .` also reviews bounded excerpts
+from application source in the selected working-tree snapshot, including eligible uncommitted
+files. The scan applies its path scope and excludes files with local credential findings or
+failed credential checks from the request. Each run performs a fresh review unless it reuses
+a receipt through `--key`. Use `laundromat scan . --no-review` to skip advisory review.
+The `--model` flag separately enables model-assisted repair for supported findings.
+
+Advisories appear in the CLI output, dashboard, and the `llm_review` field of the JSON receipt.
+The review makes at most one additional model request with a 12-second request timeout. The
+receipt records omitted files, provider failures, and skipped reviews. The scan status and push
+decision are independent of the advisory findings.
+
 ### Verify a Node/SQLite query in another repository
 
 Keep the query in a single exported CommonJS function taking `(db, term)`. Add a JSON
@@ -76,9 +96,9 @@ python scripts/push_demo.py --mode developer --dashboard
 
 Each invocation creates a disposable repository, bare remote and separate SQLite ledger. By default the demo uses your exported model credentials. `--mock-provider` uses labelled mock Responses and real scanners, Git and Docker. The terminal shows live review progress, the verified diff, and the next command for your mode. In developer mode, the fix is staged only when you run the printed approval command.
 
-Add `--dashboard` to open the review in your browser from the same terminal. The demo starts a local dashboard on an available port and prints its URL and stop command. Use `laundromat show SCAN_ID --json` with the same `LAUNDROMAT_HOME` to read the full receipt.
+Add `--dashboard` to open the review in your browser from the same terminal. The demo starts a local dashboard on an available port and prints its URL and stop command. Use `--ledger "$LAUNDROMAT_HOME"` on both mode runs to show their receipts in a shared dashboard started with `laundromat serve`. Use `laundromat show SCAN_ID --json` with the same `LAUNDROMAT_HOME` to read the full receipt.
 
-The packaged Rego policy handles strong credential matches and dependency acknowledgements locally. Detect reviews new code-pattern candidates with a redacted excerpt and location. For the approved inventory service, Prove authors cases over ordinary aisle names and ordered SKU results. A trusted adapter freezes the test, observes statement text and bound arguments in Docker, and records the original result. An observed binding violation allows Fix to return a one-line replacement. Certification requires the candidate to pass the frozen test, the checked-in inventory regression and the detector recheck. Other services retain static findings. Each push has at most nine provider requests, 6,500 input characters and 700 output tokens per call, a 25-second call timeout, and a 150-second window to start model work. A required role or verifier failure blocks as incomplete.
+The packaged Rego policy handles strong credential matches and dependency acknowledgements locally. Detect reviews new code-pattern candidates with a redacted excerpt and location. For the approved inventory service, Prove authors cases over ordinary aisle names and ordered SKU results. A trusted adapter freezes the test, observes statement text and bound arguments in Docker, and records the original result. An observed binding violation allows Fix to return a one-line replacement. Certification requires the candidate to pass the frozen test, the checked-in inventory regression and the detector recheck. Other services retain static findings. Each push has at most nine Detect, Prove, and Fix requests, 6,500 input characters and 700 output tokens per call, a 25-second call timeout, and a 150-second window to start model work. A required role or verifier failure blocks as incomplete.
 
 ## Install the earlier 0.2.0 release
 

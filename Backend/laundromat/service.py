@@ -40,7 +40,9 @@ def format_cli_summary(result, logs):
     return "\n".join(lines)
 
 
-def enqueue(repo, scope=None, key=None, trigger="local snapshot", model=False, category=None):
+def enqueue(
+    repo, scope=None, key=None, trigger="local snapshot", model=False, category=None, *, advisory_review=False
+):
     snap, initial = snapshot(repo, scope)
     if scope and any(n.endswith("package.json") for n in initial):
         snap, _ = snapshot(repo)
@@ -52,6 +54,8 @@ def enqueue(repo, scope=None, key=None, trigger="local snapshot", model=False, c
         full_context=not scope or any(n.endswith("package.json") for n in initial),
         model=model,
     )
+    if advisory_review:
+        request["advisory_review"] = True
     return history.submit(request, key)
 
 

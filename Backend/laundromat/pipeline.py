@@ -5,7 +5,7 @@ import time
 from importlib.metadata import version
 from pathlib import Path
 
-from . import detect, repair, owned, sandbox, history, manifests
+from . import detect, repair, owned, sandbox, history, llm_review, manifests
 from .snapshot import ORIGINAL_HASH, HEADER, TOKEN
 from .workspace import digest
 
@@ -76,6 +76,8 @@ def scan_rules(request, files, *, before_files=None, context_files=None):
                 check["status"] = "complete"
         except ERRORS as exc:
             check["status"] = "incomplete"
+            if kind == "secret":
+                check.setdefault("failed_paths", []).extend(paths)
             issues.append(f"{kind}: {exc}")
         finally:
             check["duration_ms"] = check.get("duration_ms", 0) + round(
@@ -334,4 +336,8 @@ def inspect(
         result["verified_actions"] = []
     issues[:] = [TOKEN.sub("[redacted]", str(reason)) for reason in issues]
     result["status"] = "incomplete" if issues else "findings" if hits else "clean"
+    if request.get("advisory_review"):
+        result["llm_review"] = llm_review.inspect_snapshot(
+            request["snapshot"], files, result, phase_callback
+        )
     return result

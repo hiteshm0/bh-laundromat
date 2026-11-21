@@ -255,6 +255,9 @@ th { font-size: 0.875rem; color: #8993a5; }
 .verified, .clean, .allow { background: rgba(183, 255, 60, 0.12); color: #b7ff3c; }
 .block, .P1, .alert { background: rgba(255, 77, 109, 0.14); color: #ff4d6d; }
 .alert { padding: 14px; }
+.sandbox-evidence { margin: 16px 0; padding: 14px; border: 1px solid #283745; border-left: 3px solid #36e4ff; border-radius: 6px; }
+.sandbox-evidence .pass { color: #b7ff3c; background: rgba(183, 255, 60, 0.12); }
+.sandbox-evidence .observed { color: #ff4d6d; background: rgba(255, 77, 109, 0.12); }
 .tabs a { padding: 10px 0; }
 .tabs a[aria-current] { font-weight: bold; border-bottom: 2px solid #b7ff3c; }
 .tabs a { text-decoration: none; }

@@ -16,6 +16,7 @@ OID = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})")
 PROGRESS_PREFIX = "laundromat-progress "
 PROGRESS_LABELS = {
     "scan": "Scanning outgoing commits",
+    "llm-review": "Reviewing outgoing code with the model",
     "review": "Detect is reviewing the finding",
     "prove": "Prove is designing test cases",
     "original": "Docker is testing the original query",

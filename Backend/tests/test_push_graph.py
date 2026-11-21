@@ -25,6 +25,75 @@ class PushGraph(unittest.TestCase):
         self.demo = Rehearsal(self.folder, env)
         self.demo.push(allowed=True)
 
+    def test_advisory_review_leaves_push_policy_and_worktree_intact(self):
+        d = self.demo
+        baseline = d.git("rev-parse", "HEAD")
+        path = d.repo / "review.js"
+        path.write_text(
+            'import { stock } from "./inventory/stock.cjs";\n'
+            "export function listStock(db, name) { return stock(db, name); }\n"
+        )
+        tip = d.commit("Add inventory handler")
+        path.write_text(path.read_text() + "// UNCOMMITTED_REVIEW_MARKER\n")
+        original = path.read_bytes()
+        d.env.update(
+            MOCK_REVIEW_FINDING="1", MOCK_GROQ_GPT_OSS="1",
+            LAUNDROMAT_PROVIDER="groq", GROQ_API_KEY="groq-mock-credential",
+        )
+        update = f"refs/heads/main {tip} refs/heads/main {baseline}\n"
+        failures = {
+            "MOCK_REVIEW_TIMEOUT": "Model provider call failed",
+            "MOCK_REVIEW_ERROR": "Model provider call failed",
+            "MOCK_REVIEW_BAD_LOCATION": "Model returned invalid advisory findings",
+            "MOCK_REVIEW_TRUNCATED": "Model response reached the advisory output limit",
+        }
+
+        for flag, reason in failures.items():
+            completed = subprocess.run(
+                ["laundromat", "gate", "--json"],
+                cwd=d.repo, env=dict(d.env, **{flag: "1"}), input=update,
+                capture_output=True, text=True, timeout=30, check=True,
+            )
+            receipt = json.loads(completed.stdout)
+            self.assertEqual(receipt["push_decision"]["action"], "allow")
+            self.assertEqual(receipt["llm_review"]["status"], "unavailable")
+            self.assertEqual(receipt["llm_review"]["reason"], reason)
+            self.assertFalse(receipt["llm_review"]["findings"])
+            self.assertFalse(receipt["issues"])
+
+        receipt = d.push(allowed=True)
+        review = receipt["llm_review"]
+        self.assertEqual(review["status"], "complete")
+        self.assertEqual(review["model_call"]["origin"], "mocked")
+        self.assertEqual(review["reviewed_files"], 1)
+        self.assertEqual(
+            [(f["path"], f["commit"], f["line"]) for f in review["findings"]],
+            [("review.js", tip, 2)],
+        )
+        self.assertFalse(receipt["push_reviews"])
+        self.assertFalse(receipt["verified_actions"])
+        self.assertEqual(d.git("diff", "--cached"), "")
+        self.assertEqual(path.read_bytes(), original)
+
+        path.write_bytes(original.removesuffix(b"// UNCOMMITTED_REVIEW_MARKER\n"))
+        del d.env["MOCK_REVIEW_FINDING"]
+        del d.env["GROQ_API_KEY"]
+        (d.repo / "readme.txt").write_text("Inventory review fixture.\n")
+        d.commit("Document fixture")
+        receipt = d.push(allowed=True)
+        self.assertEqual(receipt["llm_review"]["status"], "skipped")
+
+        d.env.update(GROQ_API_KEY="groq-mock-credential", MOCK_REVIEW_FINDING="1")
+        path.write_text(path.read_text().replace("stock(db, name);", "stock(db, name).slice(0, 10);"))
+        (d.repo / "sensitive.js").write_text('const token = "LMTEST_' + "A" * 20 + '";\n')
+        d.commit("Add a synthetic credential and update handler")
+        receipt = d.push(allowed=False)
+        self.assertEqual(receipt["push_decision"]["action"], "block")
+        self.assertTrue(any(f["category"] == "secret" for f in receipt["findings"]))
+        self.assertEqual(receipt["llm_review"]["status"], "partial")
+        self.assertEqual(receipt["llm_review"]["omitted_files"], 1)
+        self.assertEqual(len(receipt["llm_review"]["findings"]), 1)
+
     def expected_patch(self):
         d = self.demo
         path = d.repo / SOURCE
