@@ -190,10 +190,11 @@ PUSH_ROLES = {
         "property and route (runtime or static). Use the provided location and local policy.",
     ),
     "Prove": (
-        "push-prove-v1",
-        "Author a defensive observation specification for the supplied entry point. "
-        "Return entry_point, cases (each with term and expected_skus), and assertions. Choose at least "
-        "two distinct ordinary inputs from the seed. Include every required observation. No code.",
+        "push-prove-v3",
+        "Author a defensive test specification for the supplied entry_point. "
+        "Return entry_point, cases using only case_fields, and assertions equal to required_assertions. "
+        "Choose two or three distinct, ordinary terms. For a fixture, prefer terms that match rows. "
+        "When case_fields includes expected_skus, copy those values from the supplied seed. Return no code.",
     ),
     "Fix": (
         "push-fix-v1",

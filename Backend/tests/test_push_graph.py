@@ -17,7 +17,7 @@ class PushGraph(unittest.TestCase):
         env = dict(
             os.environ,
             LAUNDROMAT_HOME=str(self.folder / "ledger"),
-            PYTHONPATH=str(mock_dir.resolve()),
+            PYTHONPATH=os.pathsep.join((str(mock_dir.resolve()), str(mock_dir.resolve().parent.parent))),
             LAUNDROMAT_PROVIDER="openai",
             LAUNDROMAT_MODEL="mocked-push-test",
             OPENAI_API_KEY="local-mock-placeholder",
@@ -61,7 +61,23 @@ class PushGraph(unittest.TestCase):
         self.assertNotEqual(item["before"]["container_id"], item["after"]["container_id"])
         self.assertEqual(item["regression"]["status"], "pass")
         self.assertEqual(item["rescan"]["query_matches"], 0)
-        self.assertEqual(d.push(allowed=False)["id"], r["id"])
+        retried = d.push(allowed=False)
+        self.assertNotEqual(retried["id"], r["id"])
+        self.assertEqual(retried["snapshot"]["sha256"], r["snapshot"]["sha256"])
+        repeated = retried["push_reviews"][0]
+        self.assertEqual(repeated["state"], "proposed", retried["issues"])
+        self.assertEqual(
+            [call["role"] for call in repeated["role_calls"]], ["Detect", "Prove", "Fix"]
+        )
+        for phase in ("before", "after", "regression"):
+            self.assertNotEqual(repeated[phase]["container_id"], item[phase]["container_id"])
+        self.assertEqual(d.cli("show", r["id"])["push_reviews"][0], item)
+
+        key = d.env.pop("OPENAI_API_KEY")
+        unavailable = d.push(allowed=False)
+        d.env["OPENAI_API_KEY"] = key
+        self.assertEqual(unavailable["status"], "incomplete")
+        self.assertFalse(unavailable["verified_actions"])
         d.cli("approve", r["id"])
         d.cli("approve", r["id"])
         self.assertEqual(d.run("git", "diff", "--cached").stdout, expected_patch)
@@ -74,6 +90,51 @@ class PushGraph(unittest.TestCase):
             d.cli("show", r["id"])["push_reviews"][0]["committed_oid"],
             d.git("rev-parse", "HEAD"),
         )
+
+    def test_configured_query_at_a_repository_owned_path(self):
+        d = self.demo
+        path = "catalog/search.cjs"
+        d.git("config", "--local", "laundromat.queryConfig", "query.json")
+        d.git("config", "--local", "laundromat.pushScope", "changes")
+        source = d.repo / path
+        source.parent.mkdir()
+        source.write_text("""\
+exports.search = function search(db, term) {
+  const pattern = `%${term}%`;
+  return db.prepare("SELECT * FROM products WHERE name LIKE '" + pattern + "' ORDER BY id").all();
+};
+""")
+        (d.repo / "query.json").write_text(json.dumps(dict(
+            source=path, export="search", table="products", columns={"id": "INTEGER", "name": "TEXT"},
+            projection=["*"], filter_by="name", match="contains", order_by="id",
+            rows=[
+                {"id": 4, "name": "Study Lamp"},
+                {"id": 1, "name": "Everyday Pen"},
+                {"id": 3, "name": "The study Notebook"},
+            ],
+            regression_terms=["study", "pen", ""],
+        )))
+        d.commit("Configure the catalog lookup")
+
+        receipt = d.push(allowed=False)
+        self.assertTrue(receipt["proposal_ready"], receipt["issues"])
+        item = receipt["push_reviews"][0]
+        self.assertEqual(item["path"], path)
+        self.assertEqual([call["role"] for call in item["role_calls"]], ["Detect", "Prove", "Fix"])
+        self.assertEqual(item["test"]["entry_point"], path + "#search")
+        self.assertEqual(item["test"]["cases"], [{"term": "Study"}, {"term": "Everyday"}])
+        self.assertEqual(item["before"]["status"], "observed violation")
+        self.assertEqual(item["after"]["status"], "pass")
+        for phase in ("before", "after"):
+            observation = item[phase]["observations"][0]
+            self.assertEqual(observation["rows"], [3, 4])
+            self.assertTrue(observation["expected"])
+        self.assertEqual(item["regression"]["status"], "pass")
+        self.assertEqual(item["before"]["test_sha256"], item["after"]["test_sha256"])
+        self.assertEqual(receipt["coverage"]["push_scope"], "outgoing changes")
+        self.assertEqual(d.cli("approve", receipt["id"])["paths"], [path])
+        d.git("commit", "-qm", "Bind the product lookup")
+        d.push(allowed=True)
 
     def test_vibe_unrelated_index_and_worktree(self):
         d = self.demo
@@ -101,7 +162,13 @@ class PushGraph(unittest.TestCase):
         self.assertEqual(r["push_reviews"][0]["state"], "staged", r["issues"])
         self.assertEqual(d.run("git", "diff", "--cached").stdout, patch + prior)
         self.assertEqual(d.run("git", "diff").stdout, unstaged)
-        self.assertEqual(d.push(allowed=False)["id"], r["id"])
+        retried = d.push(allowed=False)
+        self.assertNotEqual(retried["id"], r["id"])
+        self.assertEqual(retried["push_reviews"][0]["state"], "staged", retried["issues"])
+        self.assertEqual(
+            retried["push_reviews"][0]["staged_diff"], r["push_reviews"][0]["staged_diff"]
+        )
+        self.assertEqual(d.run("git", "diff").stdout, unstaged)
         self.assertEqual(d.run("git", "diff", "--cached").stdout, patch + prior)
 
     def test_same_file_unrelated_changes_and_offline_dashboard_receipt(self):

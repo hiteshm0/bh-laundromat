@@ -1,11 +1,13 @@
 import json
 import os
 import sys
-from contextlib import contextmanager
+import time
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
 
 import typer
 from rich.console import Console
+from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
 from . import capture as tasks
 from . import gate as push
@@ -31,6 +33,51 @@ def review_spinner(machine, message="Preparing review…"):
         return
     with console.status(message) as status:
         yield status
+
+
+@contextmanager
+def push_progress(console, labels):
+    interactive = console.is_terminal and not console.is_dumb_terminal
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("{task.description}…"),
+        TimeElapsedColumn(),
+        console=console,
+        transient=True,
+        disable=not interactive,
+        redirect_stdout=False,
+        redirect_stderr=False,
+    ) as display:
+        task = display.add_task("", total=None) if interactive else None
+        previous = None
+
+        def report(stage):
+            nonlocal previous
+            if stage == previous:
+                return
+            previous = stage
+            label = labels[stage]
+            if task is None:
+                console.print(f"{label}…")
+            else:
+                display.update(task, description=label, refresh=True)
+
+        yield report
+
+
+def print_diff(console, patch):
+    if not console.is_terminal:
+        console.print(patch, end="", markup=False, highlight=False, soft_wrap=True)
+        return
+    for line in patch.splitlines(keepends=True):
+        style = ""
+        if line.startswith(("@@", "---", "+++")):
+            style = "dim"
+        elif line.startswith("+"):
+            style = "green"
+        elif line.startswith("-"):
+            style = "red"
+        console.print(line, end="", style=style, markup=False, highlight=False, soft_wrap=True)
 
 
 def output(value, machine, *, compact=False):
@@ -87,7 +134,7 @@ def output(value, machine, *, compact=False):
             if item.get("working_tree_issue"):
                 typer.echo(item["working_tree_issue"])
             if item.get("patch"):
-                typer.echo(item["patch"], nl=False)
+                print_diff(Console(), item["patch"])
         if value.get("staging_issue"):
             typer.echo(value["staging_issue"])
         states = {r["state"] for r in value.get("push_reviews", [])}
@@ -238,22 +285,32 @@ def register_commands(app):
         remote: str = "",
         json_mode: bool = typer.Option(False, "--json"),
     ):
-        with errors(json_mode):
-            stream_progress = not json_mode and os.getenv("LAUNDROMAT_PUSH_PROGRESS") == "1"
-            with review_spinner(json_mode or stream_progress, "Preparing push review…") as status:
-                def progress(stage):
-                    if status:
-                        label = push.PROGRESS_LABELS.get(stage, "Reviewing the push")
-                        status.update(label + "…")
-                    else:
-                        typer.echo(push.PROGRESS_PREFIX + stage, err=True)
-
-                result = push.decide(
-                    repo, remote, sys.stdin.read(), progress=progress if status or stream_progress else None
+        started = time.monotonic()
+        try:
+            with errors(json_mode):
+                stream_progress = not json_mode and os.getenv("LAUNDROMAT_PUSH_PROGRESS") == "1"
+                console = Console(stderr=True, highlight=False, markup=False)
+                interactive = not (json_mode or stream_progress) and (
+                    console.is_terminal and not console.is_dumb_terminal
                 )
-            output(result, json_mode, compact=status is not None)
-            if result["push_decision"]["action"] != "allow":
-                raise typer.Exit(1)
+
+                def emit(stage):
+                    typer.echo(push.PROGRESS_PREFIX + stage, err=True)
+
+                progress = (
+                    push_progress(console, push.PROGRESS_LABELS) if interactive
+                    else nullcontext(emit if stream_progress else None)
+                )
+                with progress as report:
+                    result = push.decide(repo, remote, sys.stdin.read(), progress=report)
+                output(result, json_mode, compact=interactive)
+                if result["push_decision"]["action"] != "allow":
+                    raise typer.Exit(1)
+        finally:
+            if not json_mode:
+                elapsed_ms = round((time.monotonic() - started) * 1000)
+                typer.echo(f"Pre-push elapsed · {elapsed_ms} ms")
+
 
     @app.command()
     def acknowledge(scan_id: str, finding_id: str, json_mode: bool = typer.Option(False, "--json")):

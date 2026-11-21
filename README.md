@@ -41,6 +41,28 @@ git diff --cached
 
 Developer is the default. Approval checks the reviewed branch, commit and affected bytes, then stages the verified hunk. To authorize automatic staging, run `laundromat switch vibe-coder`. A push with a verified repair stops in both modes. Review and commit the staged changes yourself, then push again. Overlapping edits and ambiguous ref assignments leave a proposal in the receipt. A credential in an intermediate outgoing commit still blocks after a later deletion.
 
+### Verify a Node/SQLite query in another repository
+
+Keep the query in a single exported CommonJS function taking `(db, term)`. Add a JSON
+contract describing the module (`source`, `export`), the fixture (`table`, `columns`,
+`rows`), the query (`projection`, `filter_by`, `match`, `order_by`), and ordinary
+`regression_terms`. Use synthetic rows. Prove receives the fixture and chooses its own
+search terms. The Docker verifier calculates the expected rows with a bound reference
+query. The installed CLI constrains the executable source shape and image.
+
+In the repository, opt in locally and then commit the contract and query:
+
+```sh
+git config --local laundromat.queryConfig .laundromat-query.json
+git config --local laundromat.pushScope changes
+```
+
+The second setting is optional. It reviews changed paths in outgoing commits and compares
+tip checks with the destination branch's existing commit. With no destination commit, tip
+checks retain full-tree coverage. Commit messages and changed intermediate blobs still get
+secret scanning. The default `trees` setting reviews full trees. Then run a normal
+`git push` from the shell with the provider credentials exported and the verifier image loaded.
+
 ### Reproduce the inventory review
 
 From this checkout with the virtual environment active, select a run:
@@ -127,9 +149,9 @@ laundromat serve --demo-history --port 8732
 
 `laundromat demo-serve` seeds a missing demo ledger and serves it. Use `--reseed` to refresh the fixture receipts. Once seeded, the replay dashboard can display the recorded repair and rollback with Docker offline.
 
-Hook installation is explicit and preserves existing hooks and custom hook paths. Pushes scan commit messages, intermediate file contents and all supplied refs. Detection reads outgoing Git objects. Staging follows the approval mode described above. Strong credential matches and incomplete required scans block. A P2 acknowledgement applies to the finding, repository and outgoing snapshot. A new branch may include already-published history when an exact exclusion is unavailable. Limits are 256 outgoing commits, 64 updates, 4,096 paths or blobs, 2 MB per file and 32 MB of distinct content.
+Hook installation is explicit and preserves existing hooks and custom hook paths. Pushes scan commit messages, intermediate file contents and all supplied refs. Each push reviews the outgoing Git objects and records a separate scan. Staging follows the approval mode described above. Strong credential matches and incomplete required scans block. A P2 acknowledgement applies to the finding, repository and outgoing snapshot. A new branch may include already-published history when an exact exclusion is unavailable. Limits are 256 outgoing commits, 64 updates, 4,096 paths or blobs, 2 MB per file and 32 MB of distinct content.
 
-The service binds to loopback. Open the repository history or refresh a scan at `/review/SCAN_ID`. Registered repositories can submit jobs through `POST /scans`. Transitions and receipt updates are durable in SQLite, and interrupted ordinary jobs can be retried. An interrupted capture needs a fresh task window. An abandoned push needs fresh Git refs. For Vite development, set `LAUNDROMAT_API_URL` to the desired loopback backend. [Local dashboard](http://127.0.0.1:8731/)
+Start `laundromat serve` with the same `LAUNDROMAT_HOME` used by the hook. The service binds to loopback. Open the scan timeline at `/dashboard` or a specific scan at `/review/SCAN_ID`. Registered repositories can submit jobs through `POST /scans`. Transitions and receipt updates are durable in SQLite, and interrupted ordinary jobs can be retried. An interrupted capture needs a fresh task window. An abandoned push needs fresh Git refs. For Vite development, set `LAUNDROMAT_API_URL` to the desired loopback backend. [Local dashboard](http://127.0.0.1:8731/)
 
 `LAUNDROMAT_HOME` selects the data directory. Installed defaults use `$XDG_DATA_HOME/laundromat` or `~/.local/share/laundromat`. A marked existing editable checkout retains its original lab and ledger defaults. `reset` replaces only the marked Phase 1 lab. Receipts, redacted observations, exact hashes, owned-fixture backups and journals otherwise persist until the owner removes the selected data directory. The marked `demo-replay-v2` child ledger contains traceable synthetic imports. Fresh repository history starts empty.
 

@@ -42,6 +42,19 @@ if os.getenv("LAUNDROMAT_MODEL") == "mocked-push-test":
                 property="parameter binding",
                 route="runtime",
             )
+        elif "fixture" in artifact:
+            fixture = artifact["fixture"]
+            assert artifact["case_fields"] == ["term"]
+            filter_by = fixture["filter_by"]
+            terms = [row[filter_by] for row in fixture["rows"] if row[filter_by] is not None]
+            if fixture["match"] == "contains":
+                terms = [term.partition(" ")[0] for term in terms]
+            cases = [dict(term=term) for term in list(dict.fromkeys(terms))[:2]]
+            output = dict(
+                entry_point=artifact["entry_point"],
+                assertions=artifact["required_assertions"],
+                cases=cases,
+            )
         elif "seed" in artifact:
             output = dict(
                 entry_point=artifact["entry_point"],
@@ -51,6 +64,8 @@ if os.getenv("LAUNDROMAT_MODEL") == "mocked-push-test":
         else:
             line = artifact["source"].splitlines()[artifact["line"] - 1]
             bound = '  return db.prepare("SELECT sku FROM stock WHERE aisle = ? ORDER BY sku").all(aisle);'
+            if "const pattern =" in artifact["source"]:
+                bound = '  return db.prepare("SELECT * FROM products WHERE name LIKE ? ORDER BY id").all(pattern);'
             if os.getenv("MOCK_BAD_PATCH"):
                 bound = bound.replace(".all(aisle)", ".all()")
             output = dict(

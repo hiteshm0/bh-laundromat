@@ -2,6 +2,7 @@
 Backend/laundromat/__init__.py
 Backend/laundromat/api.py
 Backend/laundromat/assets/inventory/probe.cjs
+Backend/laundromat/assets/inventory/query-probe.cjs
 Backend/laundromat/capture.py
 Backend/laundromat/checks.py
 Backend/laundromat/cli.py
@@ -12,6 +13,7 @@ Backend/laundromat/gate.py
 Backend/laundromat/history.py
 Backend/laundromat/install_scanner.py
 Backend/laundromat/inventory.py
+Backend/laundromat/node_sqlite.py
 Backend/laundromat/legacy.py
 Backend/laundromat/manifests.py
 Backend/laundromat/owned.py

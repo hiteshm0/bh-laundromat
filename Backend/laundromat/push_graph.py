@@ -6,6 +6,7 @@ import os
 import re
 import subprocess
 import time
+import uuid
 from pathlib import Path
 from typing import Literal
 
@@ -14,8 +15,8 @@ from langsmith import tracing_context
 from pydantic import Field, ValidationError
 from typing_extensions import TypedDict
 
-from . import detect, experiment, gate, history, inventory, provider, push_stage
-from .snapshot import git
+from . import detect, experiment, gate, history, inventory, node_sqlite, provider, push_stage
+from .snapshot import git, relative
 from .workspace import digest, json_bytes
 
 ERRORS = (OSError, ValueError, KeyError, IndexError, TypeError, subprocess.SubprocessError)
@@ -29,7 +30,6 @@ class PushState(TypedDict, total=False):
     bases: list[str]
     tips: list[str]
     findings: list[str]
-    reuse: bool
 
 
 class FindingState(TypedDict, total=False):
@@ -47,7 +47,7 @@ class Triage(inventory.Contract):
 
 
 class Patch(inventory.Contract):
-    path: Literal["inventory/stock.cjs"]
+    path: str = Field(min_length=1, max_length=512)
     old_line: str = Field(min_length=1, max_length=512)
     new_line: str = Field(min_length=1, max_length=512)
     rationale: str = Field(min_length=1, max_length=400)
@@ -185,6 +185,14 @@ class PushReview:
         self.issues = []
         self.items = {}
         self.hits = {}
+        self.query_configs = {}
+        self.query_path = gate.local_setting(repo, "queryConfig")
+        if self.query_path and relative(self.query_path) != self.query_path:
+            raise ValueError("Expected a repository-relative query configuration")
+        scope = gate.local_setting(repo, "pushScope")
+        if scope not in ("", "trees", "changes"):
+            raise ValueError("laundromat.pushScope must be trees or changes")
+        self.changed_only = scope == "changes"
 
     def report(self, stage):
         if self.progress is not None:
@@ -196,69 +204,29 @@ class PushReview:
         except ERRORS as exc:
             self.updates, self.commits, tips = [], [], []
             self.issues.append("Required scan incomplete: " + str(exc))
-        identity = digest(
-            json_bytes(
-                [
-                    self.updates,
-                    self.commits,
-                    tips,
-                    self.issues,
-                    digest(self.lines.encode()),
-                    digest(POLICY.read_bytes()),
-                    provider.PUSH_ROLES,
-                    inventory.sandbox.IMAGE,
-                    digest(inventory.PROBE.read_bytes()),
-                    {p.name: digest(p.read_bytes()) for p in detect.RULES.iterdir() if p.is_file()},
-                    provider.selected(),
-                    os.getenv("LAUNDROMAT_MODEL"),
-                ]
-            )
-        )
         req = dict(
             trigger="pre-push",
             mode=self.mode,
+            pid=os.getpid(),
             scope=self.commits,
             updates=self.updates,
-            snapshot=dict(
-                repository=str(self.repo),
-                revision=tips,
-                sha256=identity,
-                files={},
-                issues=[],
-            ),
+            snapshot=gate.push_snapshot(self.repo, self.updates, self.commits, tips, self.issues),
         )
-        self.sid = history.submit(req, state="deciding")
-        prior = history.detail(self.sid)
-        reuse = bool(
-            prior.get("workflow_version") == 1
-            and prior["status"] == "findings"
-            and prior.get("proposal_ready")
-        )
-        if not reuse:
-            with history.database() as db:
-                req["pid"] = os.getpid()
-                db.execute(
-                    "UPDATE scans SET request=?,status='deciding',result=NULL WHERE id=?",
-                    (history.encoded(req), self.sid),
-                )
-                db.execute(
-                    "UPDATE jobs SET state='deciding',attempts=attempts+1 WHERE scan=?",
-                    (self.sid,),
-                )
-                for table in ("findings", "previews", "push_evidence"):
-                    db.execute(f"DELETE FROM {table} WHERE scan=?", (self.sid,))
+        self.sid = history.submit(req, uuid.uuid4().hex, state="deciding")
+        with history.database() as db:
+            db.execute("UPDATE jobs SET attempts=1 WHERE scan=?", (self.sid,))
         push_stage.observe_commits(self.repo, self.updates)
         return dict(
             scan=self.sid,
             bases=sorted({u["base"] for u in self.updates}),
             tips=tips,
-            reuse=reuse,
         )
 
     def scan(self, state):
         self.report("scan")
         req, self.result = gate.scan_objects(
-            self.repo, self.updates, self.commits, state["tips"], self.issues
+            self.repo, self.updates, self.commits, state["tips"], self.issues,
+            changed_only=self.changed_only,
         )
         req.update(mode=self.mode, pid=os.getpid())
         with history.database() as db:
@@ -266,6 +234,16 @@ class PushReview:
                 "UPDATE scans SET request=? WHERE id=?",
                 (history.encoded(req), self.sid),
             )
+        queries = {}
+        if self.query_path:
+            for tip in state["tips"]:
+                data = object_bytes(self.repo, tip, self.query_path)
+                try:
+                    if not data or len(data) > 16_000:
+                        raise ValueError("Expected a committed query configuration within 16 KB")
+                    queries[tip] = (node_sqlite.QueryConfig.model_validate_json(data), digest(data))
+                except ValueError:
+                    self.issues.append("Configured Node/SQLite contract is missing or invalid at " + tip[:12])
         inputs = []
         for h in self.result["findings"]:
             commit = h["evidence"]["commit"]
@@ -292,8 +270,16 @@ class PushReview:
                     and h["rule"] == "laundromat.stock-query"
                     and inventory.approved(source)
                 )
+                query = queries.get(commit)
+                if query and h["path"] == query[0].source and h["rule"] in node_sqlite.RULES:
+                    config, config_hash = query
+                    if not config.approved(source):
+                        raise ValueError("Configured query does not match the supported Node/SQLite source shape")
+                    supported = True
+                    self.query_configs[fid] = config
+                    item["query_config"] = {"path": self.query_path, "sha256": config_hash}
                 if (
-                    supported
+                    supported and fid not in self.query_configs
                     and digest(object_bytes(self.repo, commit, inventory.REGRESSION))
                     != inventory.REGRESSION_HASH
                 ):
@@ -373,7 +359,9 @@ class PushReview:
             self.report("review")
             source = object_bytes(self.repo, item["commit"], h["path"])
             line = h["line"] or 1
-            nearby = display_source(source).splitlines()[max(0, line - 4) : line + 3]
+            config = self.query_configs.get(h["id"])
+            shown = source.decode() if config else display_source(source)
+            nearby = shown.splitlines()[max(0, line - 4) : line + 3]
             answer = self.call(
                 "Detect",
                 Triage,
@@ -410,38 +398,47 @@ class PushReview:
             return {"outcome": "prove"}
 
         def prove(h, item):
-            self.report("original")
+            self.report("prove")
             source = object_bytes(self.repo, item["commit"], h["path"])
-            spec = self.call(
-                "Prove",
-                inventory.TestSpec,
-                dict(
-                    finding=item["detect"],
-                    source=source.decode(),
+            config = self.query_configs.get(h["id"])
+            if config:
+                schema, adapter, context = node_sqlite.TestSpec, node_sqlite.PROBE, config.prompt()
+            else:
+                schema, adapter = inventory.TestSpec, inventory.PROBE
+                context = dict(
                     entry_point=inventory.SOURCE + "#byAisle",
                     seed=inventory.SEED,
                     required_assertions=inventory.ASSERTIONS,
-                ),
-                item,
+                    case_fields=("term", "expected_skus"),
+                )
+            spec = self.call(
+                "Prove", schema, dict(finding=item["detect"], source=source.decode(), **context), item,
             )
-            item["adapter_sha256"] = digest(inventory.PROBE.read_bytes())
+            if spec.entry_point != context["entry_point"]:
+                raise ValueError("Prove selected a different entry point")
+            item["adapter_sha256"] = digest(adapter.read_bytes())
             item["test"] = spec.model_dump()
             item["test_sha256"] = digest(json_bytes(item["test"]))
             return {"outcome": "original", "test_hash": item["test_sha256"]}
 
         def observe(h, item, candidate=False, regress=False):
             original = object_bytes(self.repo, item["commit"], h["path"])
+            source = item["candidate"].encode() if candidate else original
+            config = self.query_configs.get(h["id"])
+            if config:
+                return config.observe(
+                    source, node_sqlite.TestSpec.model_validate(item["test"]),
+                    item["test_sha256"], item["adapter_sha256"], item["query_config"]["sha256"],
+                    regress=regress,
+                )
             regression = object_bytes(self.repo, item["commit"], inventory.REGRESSION)
             return inventory.execute(
-                item["candidate"].encode() if candidate else original,
-                regression,
-                inventory.TestSpec.model_validate(item["test"]),
-                item["test_sha256"],
-                item["adapter_sha256"],
-                regress=regress,
+                source, regression, inventory.TestSpec.model_validate(item["test"]),
+                item["test_sha256"], item["adapter_sha256"], regress=regress,
             )
 
         def original(h, item):
+            self.report("original")
             result = item["before"] = observe(h, item)
             if result["status"] == "observed violation":
                 return {"outcome": "fix"}
@@ -453,6 +450,8 @@ class PushReview:
         def fix(h, item):
             self.report("draft")
             src = object_bytes(self.repo, item["commit"], h["path"])
+            config = self.query_configs.get(h["id"])
+            property_name = node_sqlite.PROPERTY if config else inventory.PROPERTY
             answer = self.call(
                 "Fix",
                 Patch,
@@ -460,7 +459,7 @@ class PushReview:
                     path=h["path"],
                     line=h["line"],
                     source=src.decode(),
-                    property=inventory.PROPERTY,
+                    property=property_name,
                     observations=item["before"]["observations"],
                     permitted_edit="One return statement at the reported line",
                 ),
@@ -469,7 +468,8 @@ class PushReview:
             lines = src.decode().splitlines(keepends=True)
             n = h["line"] - 1
             if (
-                lines[n].removesuffix("\n") != answer.old_line
+                answer.path != h["path"]
+                or lines[n].removesuffix("\n") != answer.old_line
                 or not answer.new_line.strip().startswith("return ")
                 or len(answer.new_line.splitlines()) != 1
                 or answer.old_line == answer.new_line
@@ -477,8 +477,9 @@ class PushReview:
                 raise ValueError("Patch does not replace exactly the reported return statement")
             lines[n] = answer.new_line + ("\n" if lines[n].endswith("\n") else "")
             candidate = "".join(lines).encode()
-            if not inventory.approved(candidate):
-                raise ValueError("Candidate exceeds the approved inventory service grammar")
+            allowed = config.approved(candidate, bound=True) if config else inventory.approved(candidate)
+            if not allowed:
+                raise ValueError("Candidate exceeds the approved query contract")
             patch = inventory.diff(h["path"], src, candidate)
             item.update(
                 candidate=candidate.decode(),
@@ -512,7 +513,8 @@ class PushReview:
             )
             if found or secrets:
                 raise ValueError("Candidate detector recheck retained findings")
-            item.update(state="verified", verified=True, property=inventory.PROPERTY)
+            property_name = node_sqlite.PROPERTY if h["id"] in self.query_configs else inventory.PROPERTY
+            item.update(state="verified", verified=True, property=property_name)
             return {"outcome": "stop"}
 
         graph = StateGraph(FindingState)
@@ -653,7 +655,7 @@ def review_push(repo: Path, remote: str, lines: str, *, progress=None):
         for name in ("collect", "scan", "review", "aggregate", "authorize"):
             graph.add_node(name, getattr(run, name))
         graph.add_edge(START, "collect")
-        graph.add_conditional_edges("collect", lambda s: "authorize" if s["reuse"] else "scan")
+        graph.add_edge("collect", "scan")
         graph.add_edge("scan", "review")
         graph.add_edge("review", "aggregate")
         graph.add_edge("aggregate", "authorize")

@@ -16,10 +16,11 @@ OID = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})")
 PROGRESS_PREFIX = "laundromat-progress "
 PROGRESS_LABELS = {
     "scan": "Scanning outgoing commits",
-    "review": "Reviewing a finding",
-    "original": "Testing the original query",
-    "draft": "Drafting a fix",
-    "verify": "Verifying the suggested fix",
+    "review": "Detect is reviewing the finding",
+    "prove": "Prove is designing test cases",
+    "original": "Docker is testing the original query",
+    "draft": "Fix is drafting a patch",
+    "verify": "Docker is verifying the patch",
     "stage": "Staging the verified fix",
 }
 
@@ -100,17 +101,19 @@ def commits_for(repo, remote, lines):
     return updates, commits, sorted(set(tips))
 
 
-def tree(repo, commit):
+def tree(repo, commit, paths=None):
     entries = git(repo, "ls-tree", "-r", "-z", commit).split(b"\0")
     if len(entries) > 4097:
         raise ValueError("Commit tree exceeds the 4096-path limit")
     for entry in entries:
         if entry:
             meta, name = entry.split(b"\t", 1)
+            name = os.fsdecode(name)
+            if paths is not None and name not in paths:
+                continue
             mode, kind, oid = meta.decode().split()
             if kind != "blob":
                 raise ValueError("Submodule history is outside the required scan")
-            name = os.fsdecode(name)
             if TOKEN.search(name) or any(ord(c) < 32 for c in name):
                 raise ValueError("Sensitive or unsupported Git path")
             yield name, oid
@@ -136,13 +139,35 @@ def mode(repo, setting=None):
     return value
 
 
+def local_setting(repo, name):
+    return git(repo, "config", "--local", "--get", "laundromat." + name, check=False).decode().strip()
+
+
+def changed_paths(repo, base, commit):
+    paths = git(
+        repo, "diff-tree", "--root", "--no-commit-id", "--no-renames", "-r",
+        "--name-only", "-z", *([base] if base else []), commit,
+    )
+    return {os.fsdecode(path) for path in paths.split(b"\0") if path}
+
+
 def decide(repo, remote, lines, *, progress=None):
     from .push_graph import review_push
 
     return review_push(repository(repo), remote, lines, progress=progress)
 
 
-def scan_objects(repo, updates, commits, tips, issues):
+def push_snapshot(repo, updates, commits, tips, issues):
+    return dict(
+        repository=str(repo),
+        sha256=digest(json_bytes({"updates": updates, "commits": commits, "tips": tips})),
+        revision=tips,
+        files={},
+        issues=issues,
+    )
+
+
+def scan_objects(repo, updates, commits, tips, issues, *, changed_only=False):
     start = time.monotonic()
     hits, blobs, secret_cache, metadata = [], {}, {}, []
     structure, tip_coverage = [], []
@@ -171,7 +196,11 @@ def scan_objects(repo, updates, commits, tips, issues):
             for commit in commits:
                 message = git(repo, "cat-file", "commit", commit).partition(b"\n\n")[2]
                 hits.extend(detect.secrets(message, "(commit message)", commit))
-                for name, oid in tree(repo, commit):
+                paths = None
+                if changed_only:
+                    parent = git(repo, "rev-parse", "--verify", commit + "^1", check=False).decode().strip()
+                    paths = changed_paths(repo, parent, commit)
+                for name, oid in tree(repo, commit, paths):
                     data = read(oid)
                     if b"\0" in data:
                         raise ValueError("Binary blob outside required text history coverage")
@@ -202,14 +231,19 @@ def scan_objects(repo, updates, commits, tips, issues):
         tip_issue_count = len(issues)
         tip_status = "incomplete" if tips else "no outgoing tips"
         for tip in tips:
-            files = {name: read(oid) for name, oid in tree(repo, tip)}
             bases = {u["base"] for u in updates if u["tip"] == tip} or {"0" * 40}
             for base in sorted(bases):
+                paths = changed_paths(repo, base, tip) if changed_only and base.strip("0") else None
+                files = {name: read(oid) for name, oid in tree(repo, tip, paths)}
+                manifests = [name for name in files if name.endswith("package.json")]
+                context = (
+                    {name: read(oid) for name, oid in tree(repo, tip)}
+                    if paths is not None and manifests else files
+                )
                 prior = (
                     {
                         n: git(repo, "show", base + ":" + n, check=False) or b"{}"
-                        for n in files
-                        if n.endswith("package.json")
+                        for n in manifests
                     }
                     if base.strip("0")
                     else {}
@@ -220,16 +254,19 @@ def scan_objects(repo, updates, commits, tips, issues):
                     "skip_history_secrets": True,
                     "skip_registry_check": True,
                 }
-                checked = pipeline.scan_rules(req, files, before_files=prior)
+                checked = pipeline.scan_rules(req, files, before_files=prior, context_files=context)
                 issues.extend(checked["issues"])
                 tip_coverage.append(
                     dict(
                         commit=tip,
                         base=base,
                         coverage=checked["coverage"],
-                        reason="New branch compared against empty declarations; reachable history scanned conservatively"
-                        if not base.strip("0")
-                        else "Compared supplied remote base",
+                        reason=(
+                            "Compared outgoing file changes against supplied remote base"
+                            if paths is not None else
+                            "New branch compared against empty declarations; reachable history scanned conservatively"
+                            if not base.strip("0") else "Compared supplied remote base"
+                        ),
                     )
                 )
                 for hit in checked["findings"]:
@@ -263,19 +300,12 @@ def scan_objects(repo, updates, commits, tips, issues):
         subprocess.SubprocessError,
     ) as exc:
         issues.append("Required scan incomplete: " + str(exc))
-    scope_hash = digest(json_bytes({"updates": updates, "commits": commits, "tips": tips}))
     hits.sort(key=lambda h: (h["severity"], h["path"], h["line"] or 0))
     for h in hits:
         h["scope_limits"] = pipeline.LIMITS
     req = dict(
         trigger="pre-push",
-        snapshot=dict(
-            repository=str(repo),
-            sha256=scope_hash,
-            revision=tips,
-            files={},
-            issues=issues,
-        ),
+        snapshot=push_snapshot(repo, updates, commits, tips, issues),
         scope=commits,
         updates=updates,
     )
@@ -287,6 +317,7 @@ def scan_objects(repo, updates, commits, tips, issues):
         coverage=dict(
             outgoing_commits=len(commits),
             history_blobs=len(secret_cache),
+            push_scope="outgoing changes" if changed_only else "outgoing trees",
             tips=tips,
             history_process=history_status,
             tip_checks=tip_status,

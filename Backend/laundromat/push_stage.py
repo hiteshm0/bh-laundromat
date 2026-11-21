@@ -7,7 +7,7 @@ import subprocess
 from contextlib import contextmanager
 from pathlib import Path
 
-from . import history, inventory
+from . import history, inventory, node_sqlite
 from .snapshot import git
 from .workspace import digest, plain
 
@@ -72,7 +72,7 @@ def stage(repo, scan, *, automatic, finding=None):
     if not proposals:
         raise ValueError("No verified repair belongs to the checked-out commit")
 
-    if len(proposals) != 1 or proposals[0]["path"] != inventory.SOURCE:
+    if len(proposals) != 1:
         raise ValueError("Conflicting or out-of-scope repair; stage nothing")
     p = proposals[0]
     path = p["path"]
@@ -81,8 +81,16 @@ def stage(repo, scan, *, automatic, finding=None):
     original = git(repo, "show", tip + ":" + path)
     candidate = p["candidate"].encode()
     patch = inventory.diff(path, original, candidate)
+    if contract := p.get("query_config"):
+        data = git(repo, "show", tip + ":" + contract["path"])
+        if digest(data) != contract["sha256"]:
+            raise ValueError("Query contract changed since verification")
+        config = node_sqlite.QueryConfig.model_validate_json(data)
+        allowed = config.source == path and config.approved(candidate, bound=True)
+    else:
+        allowed = path == inventory.SOURCE and inventory.approved(candidate)
     if (
-        not inventory.approved(candidate)
+        not allowed
         or digest(original) != p["original_sha256"]
         or digest(candidate) != p["candidate_sha256"]
         or digest(patch.encode()) != p["patch_sha256"]
@@ -96,32 +104,47 @@ def stage(repo, scan, *, automatic, finding=None):
     if target.stat().st_size > 2_000_000 or len(indexed) > 2_000_000:
         raise ValueError("Local file exceeds staging limit")
     working = target.read_bytes()
+    old_lines, new_lines = original.splitlines(True), candidate.splitlines(True)
+    changes = [(a, b) for a, b in zip(old_lines, new_lines) if a != b]
+    if len(changes) != 1 or len(old_lines) != len(new_lines):
+        raise ValueError("Expected a single verified statement replacement")
+    old, new = changes[0]
+
+    def project(data, before, after):
+        lines = data.splitlines(True)
+        if lines.count(before) != 1 or after in lines:
+            raise ValueError("Repair overlaps local edits or has an ambiguous preimage")
+        lines[lines.index(before)] = after
+        projected = b"".join(lines)
+        preimage = data if before == old else projected
+        # Refuse a moved statement or an edited declaration.
+        if preimage != original and original.strip() not in preimage:
+            raise ValueError("Affected declaration has local edits; proposal retained")
+        return projected
+
     intent = p.get("staging_intent")
+    staging_actor = "vibe-coder" if automatic else "developer"
+    if intent is None and p["state"] == "proposed" and new in indexed.splitlines(True):
+        # Check the current index against this run's verified hunk.
+        preimage = project(indexed, new, old)
+        applied = (
+            patch if preimage == original else inventory.diff(path, preimage, indexed, context=0)
+        )
+        intent = p["staging_intent"] = dict(before=digest(preimage), after=digest(indexed), diff=applied)
+        staging_actor = "existing index"
+        if working != indexed:
+            try:
+                project(working, new, old)
+            except ValueError:
+                p["working_tree_issue"] = "Verified hunk is already staged. Review working tree changes."
     if intent and digest(indexed) == intent["after"]:
         # A repeated approval or a crash after Git acquired and committed its index lock.
         applied = intent["diff"]
     else:
         if p["state"] in ("staged", "committed"):
             raise ValueError("Previously staged proposal changed; review current index")
-        old_lines, new_lines = original.splitlines(True), candidate.splitlines(True)
-        changes = [(a, b) for a, b in zip(old_lines, new_lines) if a != b]
-        if len(changes) != 1 or len(old_lines) != len(new_lines):
-            raise ValueError("Expected a single verified statement replacement")
-        old, new = changes[0]
-
-        def project(data):
-            lines = data.splitlines(True)
-            if lines.count(old) != 1 or new in lines:
-                raise ValueError("Repair overlaps local edits or has an ambiguous preimage")
-            lines[lines.index(old)] = new
-            return b"".join(lines)
-
-        staged_bytes, working_bytes = project(indexed), project(working)
-        # Refuse if a local edit moved the target into a different function or removed
-        # its surrounding declaration. Blank lines and additions outside the export are safe.
-        for data in (indexed, working):
-            if data != original and original.strip() not in data:
-                raise ValueError("Affected declaration has local edits; proposal retained")
+        staged_bytes = project(indexed, old, new)
+        working_bytes = project(working, old, new)
         index_patch = inventory.diff(path, indexed, staged_bytes)
         work_patch = inventory.diff(path, working, working_bytes)
         # Store only the verified statement when surrounding local bytes are private.
@@ -169,13 +192,13 @@ def stage(repo, scan, *, automatic, finding=None):
                 p["working_tree_issue"] = (
                     "Index staged; working tree changed concurrently and needs review"
                 )
-        if digest(git(repo, "show", ":" + path)) != digest(staged_bytes):
-            raise ValueError("Index changed while recording the staged hunk")
+    if digest(git(repo, "show", ":" + path)) != p["staging_intent"]["after"]:
+        raise ValueError("Index changed while recording the staged hunk")
     if p["state"] != "staged":
         p.update(
             state="staged",
             staged_diff=applied,
-            staging_actor="vibe-coder" if automatic else "developer",
+            staging_actor=staging_actor,
         )
         record(scan["id"], p)
     return dict(

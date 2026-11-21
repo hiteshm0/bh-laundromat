@@ -19,7 +19,7 @@ from pathlib import Path
 from threading import Thread
 
 from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
+from laundromat.commands import print_diff, push_progress
 from laundromat.gate import PROGRESS_LABELS
 
 EXAMPLE = Path(__file__).resolve().parents[1] / "examples/warehouse"
@@ -146,18 +146,6 @@ class Rehearsal:
         return subprocess.CompletedProcess(args, process.returncode, "".join(output), "")
 
 
-def print_diff(console, patch):
-    for line in patch.splitlines():
-        style = ""
-        if line.startswith(("@@", "---", "+++")):
-            style = "dim"
-        elif line.startswith("+"):
-            style = "green"
-        elif line.startswith("-"):
-            style = "red"
-        console.print(line, style=style, soft_wrap=True)
-
-
 def review_issue(receipt, stage):
     for item in receipt["push_reviews"]:
         for call in item.get("role_calls", []):
@@ -252,7 +240,7 @@ def main():
     options = parser.parse_args()
     console = Console(highlight=False, markup=False)
     progress_console = Console(stderr=True, highlight=False, markup=False)
-    interactive = progress_console.is_terminal
+    interactive = progress_console.is_terminal and not progress_console.is_dumb_terminal
     started = time.monotonic()
     label = "a mock model provider"
     if not options.mock_provider:
@@ -268,22 +256,11 @@ def main():
 
     stage = None
     try:
-        with Progress(
-            SpinnerColumn(), TextColumn("{task.description}…"), TimeElapsedColumn(),
-            console=progress_console, disable=not interactive, transient=True,
-            redirect_stdout=False, redirect_stderr=False,
-        ) as display:
-            task = display.add_task("", total=None)
-
+        with push_progress(progress_console, PHASES) as update:
             def report(next_stage):
                 nonlocal stage
-                if next_stage == stage:
-                    return
                 stage = next_stage
-                if interactive:
-                    display.update(task, description=PHASES[stage], refresh=True)
-                else:
-                    progress_console.print(f"{PHASES[stage]}…")
+                update(stage)
 
             report("prepare")
             folder = Path(tempfile.mkdtemp(prefix="laundromat-push-"))

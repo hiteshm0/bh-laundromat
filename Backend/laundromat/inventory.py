@@ -3,11 +3,6 @@
 import difflib
 import json
 import re
-import subprocess
-import tempfile
-import time
-import uuid
-from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -87,108 +82,38 @@ def execute(source, regression, spec, test_hash, adapter_hash, *, regress=False)
         cleanup_status="no container created",
         operation="repository regression" if regress else "frozen property test",
     )
-    start = time.monotonic()
-    name = cid = None
-
-    def remaining(reserve=0):
-        timeout = 30 - (time.monotonic() - start) - reserve
-        if timeout <= 0:
-            raise ValueError("Container deadline exceeded")
-        return timeout
-
+    if (
+        not approved(source)
+        or digest(regression) != REGRESSION_HASH
+        or digest(frozen) != test_hash
+        or digest(probe) != adapter_hash
+    ):
+        return dict(
+            result, duration_ms=0, failure_kind="identity mismatch",
+            reason="Source, test or adapter identity changed",
+        )
+    raw = sandbox.run_node(
+        {"probe.cjs": probe, "stock.cjs": source, "stock.test.cjs": regression, "test.json": frozen},
+        "stock.test.cjs" if regress else "probe.cjs",
+        result,
+    )
+    if raw is None:
+        return result
+    if regress:
+        return dict(result, status="pass")
     try:
-        if (
-            not approved(source)
-            or digest(regression) != REGRESSION_HASH
-            or digest(frozen) != test_hash
-            or digest(probe) != adapter_hash
+        rows = json.loads(raw)
+        result["observations"] = rows
+        if len(rows) != len(spec.cases) or any(
+            row["term"] != c.term or row["skus"] != c.expected_skus or len(row["calls"]) != 1
+            for row, c in zip(rows, spec.cases)
         ):
-            result.update(
-                failure_kind="identity mismatch", reason="Source, test or adapter identity changed"
-            )
-            return result
-        sandbox.command(
-            ["docker", "image", "inspect", "--format", "{{.Id}}", sandbox.IMAGE],
-            remaining(4),
+            return dict(result, status="unrelated assertion", reason="Ordinary row or call-count regression")
+        calls = [row["calls"][0] for row in rows]
+        bound = len({call["sql"] for call in calls}) == 1 and all(
+            call["args"] == [case.term] for call, case in zip(calls, spec.cases)
         )
-        with tempfile.TemporaryDirectory() as tmp:
-            folder = Path(tmp).resolve()
-            for filename, data in (
-                ("probe.cjs", probe),
-                ("stock.cjs", source),
-                ("stock.test.cjs", regression),
-                ("test.json", frozen),
-            ):
-                (folder / filename).write_bytes(data)
-                (folder / filename).chmod(0o444)
-            folder.chmod(0o755)
-            name = "laundromat-" + uuid.uuid4().hex
-            cmd = [
-                *sandbox.container_args(name),
-                "--entrypoint=node",
-                "--mount",
-                f"type=bind,src={folder},dst=/input,readonly",
-                sandbox.IMAGE,
-                "/input/stock.test.cjs" if regress else "/input/probe.cjs",
-            ]
-            cid = sandbox.command(cmd, remaining(4)).decode().strip()
-            if not re.fullmatch(r"[0-9a-f]{64}", cid):
-                raise ValueError("Invalid verifier container identity")
-            result["container_id"] = cid
-            raw = sandbox.command(["docker", "start", "--attach", cid], remaining(4))
-            state = sandbox.command(
-                [
-                    "docker",
-                    "inspect",
-                    "--format",
-                    "{{.State.Status}} {{.State.ExitCode}} {{.State.OOMKilled}}",
-                    cid,
-                ],
-                remaining(4),
-            )
-            if state.strip() != b"exited 0 false":
-                raise ValueError("Verifier process failed")
-            if regress:
-                result.update(status="pass")
-            else:
-                rows = json.loads(raw)
-                result["observations"] = rows
-                if len(rows) != len(spec.cases) or any(
-                    row["term"] != c.term
-                    or row["skus"] != c.expected_skus
-                    or len(row["calls"]) != 1
-                    for row, c in zip(rows, spec.cases)
-                ):
-                    result.update(
-                        status="unrelated assertion",
-                        reason="Ordinary row or call-count regression",
-                    )
-                else:
-                    calls = [row["calls"][0] for row in rows]
-                    bound = len({c["sql"] for c in calls}) == 1 and all(
-                        c["args"] == [case.term] for c, case in zip(calls, spec.cases)
-                    )
-                    result.update(status="pass" if bound else "observed violation")
-    except subprocess.TimeoutExpired:
-        result.update(failure_kind="timeout", reason="Verifier timed out")
-    except (OSError, TypeError, KeyError, ValueError, IndexError) as exc:
-        # Diagnostics from Node or Docker may contain application source or daemon configuration.
-        result.update(
-            failure_kind="environment unavailable" if not cid else "execution failure",
-            reason="Docker image or daemon unavailable"
-            if not cid
-            else f"Test execution failed ({type(exc).__name__})",
-        )
-    finally:
-        if name:
-            try:
-                sandbox.remove_container(name, cid, lambda: max(1, remaining()))
-                result["cleanup_status"] = "removed"
-            except (OSError, ValueError, subprocess.TimeoutExpired):
-                result.update(
-                    status="incomplete",
-                    cleanup_status="unconfirmed",
-                    reason="Container removal unconfirmed",
-                )
-        result["duration_ms"] = round((time.monotonic() - start) * 1000)
+        result["status"] = "pass" if bound else "observed violation"
+    except (KeyError, TypeError, ValueError, IndexError):
+        result.update(failure_kind="execution failure", reason="Invalid SQLite verifier output")
     return result

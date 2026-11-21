@@ -229,3 +229,69 @@ def run(req, data=b"", mode="strict", progress_callback=None):
 
             progress_callback("[sandbox] ✗ Verifier error: " + redact(result["reason"]))
     return result
+
+
+def run_node(files, entry_point, receipt):
+    """Run the packaged Node verifier against files prevalidated by its caller."""
+    start = time.monotonic()
+    name = cid = None
+
+    def remaining(reserve=0):
+        budget = 30 - (time.monotonic() - start) - reserve
+        if budget <= 0:
+            raise ValueError("Container deadline exceeded")
+        return budget
+
+    try:
+        command(["docker", "image", "inspect", "--format", "{{.Id}}", IMAGE], remaining(4))
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp).resolve()
+            for filename, data in files.items():
+                path = folder / filename
+                path.write_bytes(data)
+                path.chmod(0o444)
+            folder.chmod(0o755)
+            name = "laundromat-" + uuid.uuid4().hex
+            cmd = [
+                *container_args(name),
+                "--entrypoint=node",
+                "--mount",
+                f"type=bind,src={folder},dst=/input,readonly",
+                IMAGE,
+                "/input/" + entry_point,
+            ]
+            cid = command(cmd, remaining(4)).decode().strip()
+            if not re.fullmatch(r"[0-9a-f]{64}", cid):
+                raise ValueError("Invalid verifier container identity")
+            receipt["container_id"] = cid
+            raw = command(["docker", "start", "--attach", cid], remaining(4))
+            state = command(
+                [
+                    "docker", "inspect", "--format",
+                    "{{.State.Status}} {{.State.ExitCode}} {{.State.OOMKilled}}", cid,
+                ],
+                remaining(4),
+            )
+            if state.strip() != b"exited 0 false":
+                raise ValueError("Verifier process failed")
+    except subprocess.TimeoutExpired:
+        receipt.update(failure_kind="timeout", reason="Verifier timed out")
+        raw = None
+    except (OSError, ValueError) as exc:
+        # Docker and Node diagnostics can include application source or daemon configuration.
+        receipt.update(
+            failure_kind="environment unavailable" if not cid else "execution failure",
+            reason="Docker image or daemon unavailable"
+            if not cid else f"Test execution failed ({type(exc).__name__})",
+        )
+        raw = None
+    finally:
+        if name:
+            try:
+                remove_container(name, cid, lambda: max(1, remaining()))
+                receipt["cleanup_status"] = "removed"
+            except (OSError, ValueError, subprocess.TimeoutExpired):
+                receipt.update(cleanup_status="unconfirmed", reason="Container removal unconfirmed")
+                raw = None
+        receipt["duration_ms"] = round((time.monotonic() - start) * 1000)
+    return raw
